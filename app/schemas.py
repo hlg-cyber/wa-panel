@@ -32,6 +32,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     role: str
     email: str
+    client_id: Optional[int] = None
 
 
 # =====================
@@ -87,6 +88,7 @@ class ApiManagerOut(BaseModel):
 # =====================
 class WabaCreate(BaseModel):
     api_manager_id: int
+    client_id: Optional[int] = None
     waba_id: str
     phone_number_id: str
     display_phone_number: Optional[str] = None
@@ -94,6 +96,7 @@ class WabaCreate(BaseModel):
 
 
 class WabaUpdate(BaseModel):
+    client_id: Optional[int] = None
     display_name: Optional[str] = None
     quality_rating: Optional[QualityRatingEnum] = None
     is_active: Optional[bool] = None
@@ -102,6 +105,7 @@ class WabaUpdate(BaseModel):
 class WabaOut(BaseModel):
     id: int
     api_manager_id: int
+    client_id: Optional[int]
     waba_id: str
     phone_number_id: str
     display_phone_number: Optional[str]
@@ -147,6 +151,14 @@ class DashboardStats(BaseModel):
     active_clients: int
     suspended_clients: int
     total_wabas: int
+    wabas_green: int
+    wabas_yellow: int
+    wabas_red: int
+
+
+class ClientDashboardStats(BaseModel):
+    total_wabas: int
+    active_wabas: int
     wabas_green: int
     wabas_yellow: int
     wabas_red: int

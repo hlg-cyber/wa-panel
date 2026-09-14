@@ -5,7 +5,7 @@
     <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md" x-data="loginForm()">
         <div class="text-center mb-6">
             <h1 class="text-3xl font-bold text-gray-800">WA Panel</h1>
-            <p class="text-gray-500 mt-1">Super Admin Login</p>
+            <p class="text-gray-500 mt-1">Silakan login untuk melanjutkan</p>
         </div>
 
         <template x-if="error">
@@ -56,7 +56,13 @@ function loginForm() {
                 localStorage.setItem('token', data.access_token);
                 localStorage.setItem('role', data.role);
                 localStorage.setItem('email', data.email);
-                window.location.href = '/ui/dashboard';
+                if (data.client_id) localStorage.setItem('client_id', data.client_id);
+
+                if (data.role === 'super_admin') {
+                    window.location.href = '/ui/dashboard';
+                } else {
+                    window.location.href = '/ui/client-dashboard';
+                }
             } catch (e) {
                 this.error = 'Koneksi gagal: ' + e.message;
             } finally {

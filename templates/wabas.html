@@ -2,7 +2,6 @@
 {% block title %}WABA - WA Panel{% endblock %}
 {% block content %}
 <div x-data="wabasPage()" x-init="load()">
-    <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800">📱 WABA Management</h2>
         <button @click="openCreate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
@@ -10,8 +9,7 @@
         </button>
     </div>
 
-    <!-- Filter -->
-    <div class="bg-white p-4 rounded-xl shadow mb-4 flex gap-4 items-center">
+    <div class="bg-white p-4 rounded-xl shadow mb-4 flex gap-4 items-center flex-wrap">
         <label class="text-sm text-gray-600">Filter by API Manager:</label>
         <select x-model="filterApiManager" @change="load()" class="px-3 py-2 border rounded-lg">
             <option value="">Semua</option>
@@ -19,17 +17,23 @@
                 <option :value="am.id" x-text="am.name"></option>
             </template>
         </select>
+
+        <label class="text-sm text-gray-600 ml-4">Filter by Klien:</label>
+        <select x-model="filterClient" @change="load()" class="px-3 py-2 border rounded-lg">
+            <option value="">Semua</option>
+            <template x-for="c in clients" :key="c.id">
+                <option :value="c.id" x-text="c.name"></option>
+            </template>
+        </select>
     </div>
 
-    <!-- Table -->
     <div class="bg-white rounded-xl shadow overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">Phone Number</th>
-                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Display Name</th>
-                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">WABA ID</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Klien</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">API Manager</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">Quality</th>
                     <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
@@ -38,7 +42,7 @@
             <tbody>
                 <template x-if="items.length === 0">
                     <tr>
-                        <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">
                             Belum ada WABA. Klik "Tambah WABA" untuk mulai.
                         </td>
                     </tr>
@@ -47,8 +51,10 @@
                     <tr class="border-b hover:bg-gray-50">
                         <td class="px-4 py-3" x-text="idx + 1"></td>
                         <td class="px-4 py-3 font-medium" x-text="item.display_phone_number || '-'"></td>
-                        <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
-                        <td class="px-4 py-3 font-mono text-xs" x-text="item.waba_id"></td>
+                        <td class="px-4 py-3 text-xs">
+                            <span x-show="item.client_id" class="bg-blue-100 text-blue-700 px-2 py-1 rounded" x-text="getClientName(item.client_id)"></span>
+                            <span x-show="!item.client_id" class="text-gray-400 italic">Belum dimapping</span>
+                        </td>
                         <td class="px-4 py-3 text-xs" x-text="getApiManagerName(item.api_manager_id)"></td>
                         <td class="px-4 py-3">
                             <span :class="qualityClass(item.quality_rating)" 
@@ -65,7 +71,6 @@
         </table>
     </div>
 
-    <!-- Modal Form -->
     <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" @click.away="showModal = false">
             <h3 class="text-xl font-bold mb-4" x-text="editingId ? 'Edit WABA' : 'Tambah WABA'"></h3>
@@ -85,6 +90,19 @@
                         </template>
                     </select>
                 </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Klien (Opsional)</label>
+                    <select x-model="form.client_id"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                        <option value="">-- Belum dimapping --</option>
+                        <template x-for="c in clients" :key="c.id">
+                            <option :value="c.id" x-text="c.name"></option>
+                        </template>
+                    </select>
+                    <p class="text-xs text-gray-400 mt-1">Pilih klien yang memiliki WABA ini. Kosongkan jika belum dimapping.</p>
+                </div>
+
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">WABA ID *</label>
                     <input type="text" x-model="form.waba_id" :disabled="!!editingId" required
@@ -147,20 +165,35 @@ function wabasPage() {
     return {
         items: [],
         apiManagers: [],
+        clients: [],
         filterApiManager: '',
+        filterClient: '',
         showModal: false,
         editingId: null,
         saving: false,
         error: '',
-        form: { api_manager_id: '', waba_id: '', phone_number_id: '', display_phone_number: '', display_name: '', quality_rating: 'UNKNOWN', is_active: true },
+        form: { 
+            api_manager_id: '', 
+            client_id: '',
+            waba_id: '', 
+            phone_number_id: '', 
+            display_phone_number: '', 
+            display_name: '', 
+            quality_rating: 'UNKNOWN', 
+            is_active: true 
+        },
 
         async load() {
-            // Load API Managers untuk dropdown
             const amRes = await apiFetch('/api-managers');
             if (amRes) this.apiManagers = await amRes.json();
 
-            // Load WABA (dengan filter jika ada)
-            const url = this.filterApiManager ? `/wabas?api_manager_id=${this.filterApiManager}` : '/wabas';
+            const cRes = await apiFetch('/clients');
+            if (cRes) this.clients = await cRes.json();
+
+            let url = '/wabas?';
+            if (this.filterApiManager) url += `api_manager_id=${this.filterApiManager}&`;
+            if (this.filterClient) url += `client_id=${this.filterClient}&`;
+            
             const res = await apiFetch(url);
             if (res) this.items = await res.json();
         },
@@ -168,6 +201,11 @@ function wabasPage() {
         getApiManagerName(id) {
             const am = this.apiManagers.find(x => x.id === id);
             return am ? am.name : `#${id}`;
+        },
+
+        getClientName(id) {
+            const c = this.clients.find(x => x.id === id);
+            return c ? c.name : `#${id}`;
         },
 
         qualityLabel(rating) {
@@ -188,7 +226,16 @@ function wabasPage() {
         openCreate() {
             this.editingId = null;
             this.error = '';
-            this.form = { api_manager_id: '', waba_id: '', phone_number_id: '', display_phone_number: '', display_name: '', quality_rating: 'UNKNOWN', is_active: true };
+            this.form = { 
+                api_manager_id: '', 
+                client_id: '',
+                waba_id: '', 
+                phone_number_id: '', 
+                display_phone_number: '', 
+                display_name: '', 
+                quality_rating: 'UNKNOWN', 
+                is_active: true 
+            };
             this.showModal = true;
         },
 
@@ -197,6 +244,7 @@ function wabasPage() {
             this.error = '';
             this.form = {
                 api_manager_id: item.api_manager_id,
+                client_id: item.client_id || '',
                 waba_id: item.waba_id,
                 phone_number_id: item.phone_number_id,
                 display_phone_number: item.display_phone_number || '',
@@ -216,16 +264,21 @@ function wabasPage() {
                 
                 let payload;
                 if (this.editingId) {
-                    // Update: hanya field yang boleh diubah
                     payload = {
+                        client_id: this.form.client_id ? parseInt(this.form.client_id) : 0,
                         display_name: this.form.display_name,
                         quality_rating: this.form.quality_rating,
                         is_active: this.form.is_active,
                     };
                 } else {
-                    payload = { ...this.form };
-                    delete payload.quality_rating;
-                    delete payload.is_active;
+                    payload = {
+                        api_manager_id: parseInt(this.form.api_manager_id),
+                        client_id: this.form.client_id ? parseInt(this.form.client_id) : null,
+                        waba_id: this.form.waba_id,
+                        phone_number_id: this.form.phone_number_id,
+                        display_phone_number: this.form.display_phone_number,
+                        display_name: this.form.display_name,
+                    };
                 }
 
                 const res = await apiFetch(url, {

@@ -12,12 +12,15 @@ router = APIRouter(prefix="/wabas", tags=["WABA"])
 @router.get("", response_model=List[WabaOut])
 def list_wabas(
     api_manager_id: Optional[int] = None,
+    client_id: Optional[int] = None,
     db: Session = Depends(get_db),
     _: models.User = Depends(require_super_admin),
 ):
     query = db.query(models.Waba)
     if api_manager_id:
         query = query.filter(models.Waba.api_manager_id == api_manager_id)
+    if client_id:
+        query = query.filter(models.Waba.client_id == client_id)
     return query.order_by(models.Waba.id.desc()).all()
 
 
@@ -39,18 +42,22 @@ def create_waba(
     db: Session = Depends(get_db),
     _: models.User = Depends(require_super_admin),
 ):
-    # Cek API Manager exists
     am = db.query(models.ApiManager).filter(models.ApiManager.id == payload.api_manager_id).first()
     if not am:
         raise HTTPException(status_code=404, detail="API Manager tidak ditemukan")
 
-    # Cek WABA ID sudah ada?
+    if payload.client_id:
+        client = db.query(models.Client).filter(models.Client.id == payload.client_id).first()
+        if not client:
+            raise HTTPException(status_code=404, detail="Klien tidak ditemukan")
+
     existing = db.query(models.Waba).filter(models.Waba.waba_id == payload.waba_id).first()
     if existing:
         raise HTTPException(status_code=400, detail="WABA ID sudah terdaftar")
 
     obj = models.Waba(
         api_manager_id=payload.api_manager_id,
+        client_id=payload.client_id,
         waba_id=payload.waba_id,
         phone_number_id=payload.phone_number_id,
         display_phone_number=payload.display_phone_number,
@@ -73,6 +80,8 @@ def update_waba(
     if not obj:
         raise HTTPException(status_code=404, detail="WABA tidak ditemukan")
 
+    if payload.client_id is not None:
+        obj.client_id = payload.client_id if payload.client_id > 0 else None
     if payload.display_name is not None:
         obj.display_name = payload.display_name
     if payload.quality_rating is not None:

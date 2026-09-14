@@ -21,10 +21,23 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Akun tidak aktif",
         )
-    token = create_access_token({"sub": str(user.id), "role": user.role})
+
+    if user.role == "client_admin" and user.client:
+        if user.client.status == models.ClientStatus.suspended:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Akun klien sedang disuspend. Hubungi administrator.",
+            )
+
+    token = create_access_token({
+        "sub": str(user.id),
+        "role": user.role,
+        "client_id": user.client_id,
+    })
     return TokenResponse(
         access_token=token,
         token_type="bearer",
         role=user.role,
         email=user.email,
+        client_id=user.client_id,
     )

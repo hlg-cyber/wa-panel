@@ -7,12 +7,29 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
     <script>
-        // Cek auth sebelum page render (kecuali halaman login)
         (function() {
-            const isLoginPage = window.location.pathname === '/login';
+            const path = window.location.pathname;
+            const isLoginPage = path === '/login';
             const token = localStorage.getItem('token');
-            if (!isLoginPage && !token) {
+            const role = localStorage.getItem('role');
+
+            if (isLoginPage) return;
+
+            if (!token) {
                 window.location.href = '/login';
+                return;
+            }
+
+            if (role === 'super_admin' && path.startsWith('/ui/client-')) {
+                window.location.href = '/ui/dashboard';
+            }
+            if (role === 'client_admin' && (
+                path === '/ui/dashboard' ||
+                path === '/ui/api-managers' ||
+                path === '/ui/wabas' ||
+                path === '/ui/clients'
+            )) {
+                window.location.href = '/ui/client-dashboard';
             }
         })();
     </script>
@@ -22,7 +39,6 @@
     {% block body %}{% endblock %}
 
     <script>
-        // Helper global untuk API call dengan token
         async function apiFetch(url, options = {}) {
             const token = localStorage.getItem('token');
             if (!token) {
