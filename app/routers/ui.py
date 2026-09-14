@@ -1,8 +1,6 @@
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from app.deps import require_super_admin, require_client_admin
-from app import models
 
 router = APIRouter(tags=["UI"])
 templates = Jinja2Templates(directory="templates")
@@ -13,43 +11,26 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-# ---------- SUPER ADMIN PAGES ----------
 @router.get("/ui/dashboard", response_class=HTMLResponse)
-def dashboard_page(
-    request: Request,
-    current_user: models.User = Depends(require_super_admin),
-):
+def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
 
 
 @router.get("/ui/api-managers", response_class=HTMLResponse)
-def api_managers_page(
-    request: Request,
-    current_user: models.User = Depends(require_super_admin),
-):
+def api_managers_page(request: Request):
     return templates.TemplateResponse("api_managers.html", {"request": request})
 
 
 @router.get("/ui/wabas", response_class=HTMLResponse)
-def wabas_page(
-    request: Request,
-    current_user: models.User = Depends(require_super_admin),
-):
+def wabas_page(request: Request):
     return templates.TemplateResponse("wabas.html", {"request": request})
 
 
 @router.get("/ui/clients", response_class=HTMLResponse)
-def clients_page(
-    request: Request,
-    current_user: models.User = Depends(require_super_admin),
-):
+def clients_page(request: Request):
     return templates.TemplateResponse("clients.html", {"request": request})
 
 
-# ---------- CLIENT ADMIN PAGES ----------
 @router.get("/ui/client-dashboard", response_class=HTMLResponse)
-def client_dashboard_page(
-    request: Request,
-    current_user: models.User = Depends(require_client_admin),
-):
+def client_dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard_client.html", {"request": request})
