@@ -16,7 +16,7 @@ router = APIRouter(prefix="/chat", tags=["Chat CS"])
 
 
 # =====================
-# WORKFLOW DEFINITION (server-side)
+# WORKFLOW DEFINITION
 # =====================
 WORKFLOW_STEPS = [
     {"key": "confirm", "label": "Konfirmasi Chat Ditangani", "desc": "Balas klien & tandai sedang diproses"},
@@ -33,12 +33,36 @@ def _parse_checklist(raw: Optional[str]) -> dict:
         return {step["key"]: False for step in WORKFLOW_STEPS}
     try:
         data = json.loads(raw)
-        # Pastikan semua key ada
         for step in WORKFLOW_STEPS:
             data.setdefault(step["key"], False)
         return data
     except Exception:
         return {step["key"]: False for step in WORKFLOW_STEPS}
+
+
+def _build_session_detail(session, messages, client_name=None, client_email=None, checklist=None):
+    """Build ChatSessionDetail manual (hindari model_validate yang crash karena checklist_state string)."""
+    return ChatSessionDetail(
+        id=session.id,
+        client_id=session.client_id,
+        topic=session.topic,
+        phone_number=session.phone_number,
+        display_name=session.display_name,
+        status=session.status,
+        otp_code=session.otp_code,
+        otp_requested_at=session.otp_requested_at,
+        meta_waba_id=session.meta_waba_id,
+        meta_phone_number_id=session.meta_phone_number_id,
+        waba_id=session.waba_id,
+        api_manager_id=session.api_manager_id,
+        rejection_reason=session.rejection_reason,
+        created_at=session.created_at,
+        completed_at=session.completed_at,
+        messages=[ChatMessageOut.model_validate(m) for m in messages],
+        client_name=client_name,
+        client_email=client_email,
+        checklist_state=checklist,
+    )
 
 
 # ============ KLIEN ============
@@ -118,11 +142,7 @@ def get_session_detail(
         models.ChatMessage.session_id == session_id
     ).order_by(models.ChatMessage.id.asc()).all()
 
-    result = ChatSessionDetail.model_validate(session)
-    result.messages = [ChatMessageOut.model_validate(m) for m in messages]
-    # Klien tidak perlu lihat checklist
-    result.checklist_state = None
-    return result
+    return _build_session_detail(session, messages, checklist=None)
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ChatMessageOut)
@@ -176,7 +196,6 @@ def my_unread_count(
 def get_workflow_definition(
     _: models.User = Depends(require_super_admin),
 ):
-    """Return definisi workflow steps agar frontend bisa render."""
     return WORKFLOW_STEPS
 
 
@@ -219,12 +238,12 @@ def admin_get_session(
         models.User.role == "client_admin",
     ).first()
 
-    result = ChatSessionDetail.model_validate(session)
-    result.messages = [ChatMessageOut.model_validate(m) for m in messages]
-    result.client_name = client.name if client else None
-    result.client_email = client_admin.email if client_admin else None
-    result.checklist_state = _parse_checklist(session.checklist_state)
-    return result
+    return _build_session_detail(
+        session, messages,
+        client_name=client.name if client else None,
+        client_email=client_admin.email if client_admin else None,
+        checklist=_parse_checklist(session.checklist_state),
+    )
 
 
 @router.post("/admin/sessions/{session_id}/messages", response_model=ChatMessageOut)
@@ -250,7 +269,6 @@ def admin_send_message(
     if session.status == models.ChatSessionStatus.waiting_admin:
         session.status = models.ChatSessionStatus.in_progress
 
-    # Auto-check step "confirm" saat admin pertama kali balas
     checklist = _parse_checklist(session.checklist_state)
     if not checklist.get("confirm"):
         checklist["confirm"] = True
@@ -268,7 +286,6 @@ def update_checklist(
     db: Session = Depends(get_db),
     _: models.User = Depends(require_super_admin),
 ):
-    """Update status checklist step."""
     session = db.query(models.ChatSession).filter(models.ChatSession.id == session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Sesi tidak ditemukan")
@@ -281,7 +298,6 @@ def update_checklist(
     checklist[payload.step_key] = payload.completed
     session.checklist_state = json.dumps(checklist)
 
-    # Auto-update session status
     if payload.step_key == "confirm" and payload.completed:
         if session.status == models.ChatSessionStatus.waiting_admin:
             session.status = models.ChatSessionStatus.in_progress
@@ -300,12 +316,12 @@ def update_checklist(
         models.User.role == "client_admin",
     ).first()
 
-    result = ChatSessionDetail.model_validate(session)
-    result.messages = [ChatMessageOut.model_validate(m) for m in messages]
-    result.client_name = client.name if client else None
-    result.client_email = client_admin.email if client_admin else None
-    result.checklist_state = checklist
-    return result
+    return _build_session_detail(
+        session, messages,
+        client_name=client.name if client else None,
+        client_email=client_admin.email if client_admin else None,
+        checklist=checklist,
+    )
 
 
 @router.post("/admin/sessions/{session_id}/action/request-otp", response_model=ChatMessageOut)
@@ -338,7 +354,6 @@ def admin_request_otp(
     session.status = models.ChatSessionStatus.waiting_otp
     session.otp_requested_at = datetime.utcnow()
 
-    # Auto-check step request_otp
     checklist = _parse_checklist(session.checklist_state)
     checklist["request_otp"] = True
     session.checklist_state = json.dumps(checklist)
@@ -398,7 +413,6 @@ async def admin_complete_waba(
     session.status = models.ChatSessionStatus.completed
     session.completed_at = datetime.utcnow()
 
-    # Update checklist: semua step true
     checklist = {step["key"]: True for step in WORKFLOW_STEPS}
     session.checklist_state = json.dumps(checklist)
 
