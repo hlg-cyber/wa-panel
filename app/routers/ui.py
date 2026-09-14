@@ -38,6 +38,11 @@ def client_dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard_client.html", {"request": request})
 
 
+@router.get("/ui/client-chat", response_class=HTMLResponse)
+def client_chat_page(request: Request):
+    return templates.TemplateResponse("client_chat.html", {"request": request})
+
+
 @router.get("/ui/client-wabas", response_class=HTMLResponse)
 def client_wabas_page(request: Request):
     return templates.TemplateResponse("client_wabas.html", {"request": request})

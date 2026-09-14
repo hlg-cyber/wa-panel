@@ -1,10 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from app.database import get_db
 from app import models
 from app.schemas import WabaCreate, WabaUpdate, WabaOut
 from app.deps import require_super_admin
+from app.services import meta_api
 
 router = APIRouter(prefix="/wabas", tags=["WABA"])
 
@@ -37,8 +38,9 @@ def get_waba(
 
 
 @router.post("", response_model=WabaOut, status_code=status.HTTP_201_CREATED)
-def create_waba(
+async def create_waba(
     payload: WabaCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _: models.User = Depends(require_super_admin),
 ):
@@ -66,7 +68,43 @@ def create_waba(
     db.add(obj)
     db.commit()
     db.refresh(obj)
+
+    # Auto-subscribe WABA ke Meta App (background)
+    background_tasks.add_task(_auto_subscribe, obj.id)
+
     return obj
+
+
+async def _auto_subscribe(waba_id: int):
+    """Background task: auto-subscribe WABA ke Meta App."""
+    from app.database import SessionLocal
+    db = SessionLocal()
+    try:
+        waba = db.query(models.Waba).filter(models.Waba.id == waba_id).first()
+        if waba:
+            result = await meta_api.subscribe_waba_to_app(waba)
+            if result.get("success"):
+                print(f"✅ Auto-subscribe WABA {waba.waba_id} sukses")
+            else:
+                print(f"⚠️  Auto-subscribe WABA {waba.waba_id} gagal: {result.get('error')}")
+    finally:
+        db.close()
+
+
+@router.post("/{waba_id}/resubscribe")
+async def resubscribe_waba(
+    waba_id: int,
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_super_admin),
+):
+    """Endpoint manual: paksa subscribe ulang WABA ke Meta App."""
+    waba = db.query(models.Waba).filter(models.Waba.id == waba_id).first()
+    if not waba:
+        raise HTTPException(status_code=404, detail="WABA tidak ditemukan")
+    result = await meta_api.subscribe_waba_to_app(waba)
+    if result.get("success"):
+        return {"success": True, "message": "WABA berhasil di-subscribe"}
+    raise HTTPException(status_code=400, detail=result.get("error", "Gagal subscribe"))
 
 
 @router.put("/{waba_id}", response_model=WabaOut)

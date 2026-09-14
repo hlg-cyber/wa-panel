@@ -9,12 +9,32 @@ META_BASE_URL = f"https://graph.facebook.com/{META_API_VERSION}"
 
 
 def _get_access_token(waba: models.Waba) -> str:
-    """Ambil access token dari API Manager terkait WABA."""
     return decrypt_token(waba.api_manager.access_token_encrypted)
 
 
+async def subscribe_waba_to_app(waba: models.Waba) -> Dict[str, Any]:
+    """
+    Force subscribe WABA ke Meta App.
+    Ini WAJIB dipanggil setiap WABA baru ditambahkan, agar webhook menerima pesan.
+    """
+    token = _get_access_token(waba)
+    url = f"{META_BASE_URL}/{waba.waba_id}/subscribed_apps"
+    headers = {"Authorization": f"Bearer {token}"}
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(url, headers=headers)
+            data = res.json()
+            if res.status_code >= 400:
+                print(f"❌ Subscribe WABA {waba.waba_id} gagal: {data}")
+                return {"success": False, "error": data.get("error", {}).get("message", str(data))}
+            print(f"✅ WABA {waba.waba_id} subscribed to app")
+            return {"success": True, "data": data}
+    except Exception as e:
+        print(f"❌ Subscribe WABA error: {e}")
+        return {"success": False, "error": str(e)}
+
+
 async def send_text_message(waba: models.Waba, to: str, text: str) -> Dict[str, Any]:
-    """Kirim pesan text via WhatsApp Cloud API."""
     token = _get_access_token(waba)
     url = f"{META_BASE_URL}/{waba.phone_number_id}/messages"
     payload = {
@@ -31,7 +51,6 @@ async def send_template_message(
     waba: models.Waba, to: str, template_name: str, language: str = "id",
     params: Optional[list] = None,
 ) -> Dict[str, Any]:
-    """Kirim pesan template via WhatsApp Cloud API."""
     token = _get_access_token(waba)
     url = f"{META_BASE_URL}/{waba.phone_number_id}/messages"
 
@@ -59,7 +78,6 @@ async def send_media_message(
     waba: models.Waba, to: str, media_type: str, media_url: str,
     caption: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Kirim media (image/document/video) via URL."""
     token = _get_access_token(waba)
     url = f"{META_BASE_URL}/{waba.phone_number_id}/messages"
     media_obj = {"link": media_url}
@@ -75,7 +93,6 @@ async def send_media_message(
 
 
 async def _post(url: str, token: str, payload: dict) -> Dict[str, Any]:
-    """Helper untuk POST ke Meta Graph API."""
     headers = {
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json",
@@ -92,14 +109,12 @@ async def _post(url: str, token: str, payload: dict) -> Dict[str, Any]:
 
 
 async def submit_template(waba: models.Waba, template_data: dict) -> Dict[str, Any]:
-    """Submit template ke Meta untuk approval."""
     token = _get_access_token(waba)
     url = f"{META_BASE_URL}/{waba.waba_id}/message_templates"
     return await _post(url, token, template_data)
 
 
 async def get_template_status(waba: models.Waba, template_name: str) -> Dict[str, Any]:
-    """Cek status template di Meta."""
     token = _get_access_token(waba)
     url = f"{META_BASE_URL}/{waba.waba_id}/message_templates?name={template_name}"
     headers = {"Authorization": f"Bearer {token}"}

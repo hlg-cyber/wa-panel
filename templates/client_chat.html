@@ -1,0 +1,252 @@
+{% extends "layout_client.html" %}
+{% block title %}Chat - WA Panel{% endblock %}
+{% block content %}
+<div x-data="chatRoom()" x-init="init()" class="h-[calc(100vh-4rem)] flex bg-white rounded-xl shadow overflow-hidden">
+    <!-- Sidebar: Daftar Percakapan -->
+    <div class="w-80 border-r flex flex-col bg-gray-50">
+        <div class="p-4 border-b bg-white">
+            <h2 class="font-bold text-gray-800 mb-3">💬 Chat</h2>
+            <input type="text" x-model="search" placeholder="Cari nomor..."
+                class="w-full px-3 py-2 text-sm border rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="flex-1 overflow-y-auto">
+            <template x-if="filteredConversations.length === 0">
+                <div class="p-4 text-center text-gray-400 text-sm">
+                    Belum ada percakapan
+                </div>
+            </template>
+            <template x-for="c in filteredConversations" :key="c.phone">
+                <div @click="openChat(c.phone)"
+                    :class="selectedPhone === c.phone ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-gray-100'"
+                    class="p-3 border-b cursor-pointer">
+                    <div class="flex justify-between items-start">
+                        <div class="font-semibold text-sm text-gray-800" x-text="c.phone"></div>
+                        <div class="text-xs text-gray-400" x-text="formatTimeShort(c.last_time)"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1 truncate">
+                        <span x-show="c.last_direction === 'outbound'" class="text-blue-500">Anda: </span>
+                        <span x-text="c.last_message"></span>
+                    </div>
+                    <div class="text-xs text-gray-400 mt-1" x-text="`${c.total_messages} pesan`"></div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Area Chat -->
+    <div class="flex-1 flex flex-col bg-[#e5ddd5]">
+        <template x-if="!selectedPhone">
+            <div class="flex-1 flex items-center justify-center text-gray-500">
+                <div class="text-center">
+                    <div class="text-5xl mb-2">💬</div>
+                    <div>Pilih percakapan untuk memulai</div>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="selectedPhone">
+            <div class="flex flex-col h-full">
+                <!-- Header -->
+                <div class="bg-white border-b p-4 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-gray-800" x-text="selectedPhone"></div>
+                        <div class="text-xs text-gray-500">
+                            <span x-text="`${messages.length} pesan`"></span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <select x-model="selectedWabaId" class="text-xs px-2 py-1 border rounded">
+                            <option value="">-- Pilih WABA --</option>
+                            <template x-for="w in wabas" :key="w.id">
+                                <option :value="w.id" x-text="w.display_phone_number || w.waba_id"></option>
+                            </template>
+                        </select>
+                        <button @click="refreshMessages" class="text-xs px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">🔄</button>
+                    </div>
+                </div>
+
+                <!-- Messages -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-2" x-ref="messagesContainer">
+                    <template x-for="m in messages" :key="m.id">
+                        <div :class="m.direction === 'outbound' ? 'justify-end' : 'justify-start'" class="flex">
+                            <div :class="m.direction === 'outbound' ? 'bg-[#dcf8c6]' : 'bg-white'"
+                                class="max-w-md px-3 py-2 rounded-lg shadow">
+                                <div class="text-sm text-gray-800 whitespace-pre-wrap" x-text="m.content"></div>
+                                <div class="flex items-center justify-end gap-1 mt-1">
+                                    <span class="text-[10px] text-gray-500" x-text="formatTime(m.created_at)"></span>
+                                    <template x-if="m.direction === 'outbound'">
+                                        <span class="text-[10px]" :class="statusColor(m.status)" x-text="statusIcon(m.status)"></span>
+                                    </template>
+                                </div>
+                                <template x-if="m.error_message">
+                                    <div class="text-[10px] text-red-600 mt-1" x-text="m.error_message"></div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Input -->
+                <div class="bg-white border-t p-3">
+                    <template x-if="sendError">
+                        <div class="text-xs text-red-600 mb-2" x-text="sendError"></div>
+                    </template>
+                    <div class="flex gap-2">
+                        <textarea x-model="newMessage" @keydown.enter.prevent="sendMessage"
+                            placeholder="Ketik pesan... (Enter untuk kirim)"
+                            rows="2"
+                            class="flex-1 px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500"></textarea>
+                        <button @click="sendMessage" :disabled="sending || !newMessage.trim()"
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold">
+                            <span x-show="!sending">Kirim</span>
+                            <span x-show="sending">...</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </template>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function chatRoom() {
+    return {
+        conversations: [],
+        messages: [],
+        wabas: [],
+        selectedPhone: '',
+        selectedWabaId: '',
+        newMessage: '',
+        sending: false,
+        sendError: '',
+        search: '',
+
+        get filteredConversations() {
+            if (!this.search) return this.conversations;
+            return this.conversations.filter(c => c.phone.includes(this.search));
+        },
+
+        async init() {
+            await this.loadWabas();
+            await this.loadConversations();
+            // Auto refresh conversations setiap 10 detik
+            setInterval(() => this.loadConversations(), 10000);
+        },
+
+        async loadWabas() {
+            const res = await apiFetch('/client-portal/wabas');
+            if (res) this.wabas = await res.json();
+            if (this.wabas.length > 0) this.selectedWabaId = this.wabas[0].id;
+        },
+
+        async loadConversations() {
+            const res = await apiFetch('/messages/conversations');
+            if (res) this.conversations = await res.json();
+        },
+
+        async openChat(phone) {
+            this.selectedPhone = phone;
+            this.sendError = '';
+            await this.loadMessages();
+            // Auto refresh pesan setiap 5 detik
+            if (this._msgInterval) clearInterval(this._msgInterval);
+            this._msgInterval = setInterval(() => {
+                if (this.selectedPhone === phone) this.loadMessages();
+            }, 5000);
+        },
+
+        async loadMessages() {
+            if (!this.selectedPhone) return;
+            const res = await apiFetch(`/messages/conversation/${this.selectedPhone}`);
+            if (res) {
+                const oldLen = this.messages.length;
+                this.messages = await res.json();
+                // Scroll ke bawah kalau ada pesan baru
+                if (this.messages.length > oldLen) {
+                    this.$nextTick(() => this.scrollBottom());
+                }
+            }
+        },
+
+        async refreshMessages() {
+            await this.loadMessages();
+            await this.loadConversations();
+        },
+
+        scrollBottom() {
+            const el = this.$refs.messagesContainer;
+            if (el) el.scrollTop = el.scrollHeight;
+        },
+
+        async sendMessage() {
+            if (!this.newMessage.trim() || !this.selectedPhone) return;
+            if (!this.selectedWabaId) {
+                this.sendError = 'Pilih WABA terlebih dahulu';
+                return;
+            }
+            this.sending = true;
+            this.sendError = '';
+            try {
+                const res = await apiFetch('/messages/send', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        waba_id: parseInt(this.selectedWabaId),
+                        to: this.selectedPhone,
+                        message_type: 'text',
+                        text: this.newMessage.trim(),
+                    })
+                });
+                const data = await res.json();
+                if (!res.ok || !data.success) {
+                    this.sendError = data.detail || data.error || 'Gagal kirim';
+                    return;
+                }
+                this.newMessage = '';
+                await this.loadMessages();
+                await this.loadConversations();
+            } catch (e) {
+                this.sendError = 'Error: ' + e.message;
+            } finally {
+                this.sending = false;
+            }
+        },
+
+        formatTime(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        },
+
+        formatTimeShort(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            const now = new Date();
+            if (d.toDateString() === now.toDateString()) {
+                return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            }
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        },
+
+        statusIcon(status) {
+            const map = {
+                sent: '✓',
+                delivered: '✓✓',
+                read: '✓✓',
+                failed: '✗',
+                received: '✓',
+            };
+            return map[status] || '';
+        },
+
+        statusColor(status) {
+            if (status === 'read') return 'text-blue-500';
+            if (status === 'failed') return 'text-red-500';
+            if (status === 'delivered') return 'text-gray-500';
+            return 'text-gray-400';
+        }
+    }
+}
+</script>
+{% endblock %}
