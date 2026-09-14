@@ -9,11 +9,13 @@
     <script>
         (function() {
             const path = window.location.pathname;
-            const isLoginPage = path === '/login';
+            // Halaman publik: tidak butuh login
+            const publicPaths = ['/login', '/register'];
+            const isPublicPage = publicPaths.includes(path);
             const token = localStorage.getItem('token');
             const role = localStorage.getItem('role');
 
-            if (isLoginPage) return;
+            if (isPublicPage) return;
 
             if (!token) {
                 window.location.href = '/login';
@@ -27,7 +29,8 @@
                 path === '/ui/dashboard' ||
                 path === '/ui/api-managers' ||
                 path === '/ui/wabas' ||
-                path === '/ui/clients'
+                path === '/ui/clients' ||
+                path === '/ui/waba-requests'
             )) {
                 window.location.href = '/ui/client-dashboard';
             }
