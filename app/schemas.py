@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Any, Dict
 from datetime import datetime
 from enum import Enum
 
@@ -194,10 +194,12 @@ class ChatSessionDetail(ChatSessionOut):
     messages: List[ChatMessageOut] = []
     client_name: Optional[str] = None
     client_email: Optional[str] = None
+    checklist_state: Optional[Dict[str, Any]] = None
 
 
-class ActionRequest(BaseModel):
-    pass
+class ChecklistUpdate(BaseModel):
+    step_key: str
+    completed: bool
 
 
 class CompleteWabaRequest(BaseModel):
