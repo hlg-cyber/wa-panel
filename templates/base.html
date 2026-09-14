@@ -9,18 +9,13 @@
     <script>
         (function() {
             const path = window.location.pathname;
-            // Halaman publik: tidak butuh login
             const publicPaths = ['/login', '/register'];
             const isPublicPage = publicPaths.includes(path);
             const token = localStorage.getItem('token');
             const role = localStorage.getItem('role');
 
             if (isPublicPage) return;
-
-            if (!token) {
-                window.location.href = '/login';
-                return;
-            }
+            if (!token) { window.location.href = '/login'; return; }
 
             if (role === 'super_admin' && path.startsWith('/ui/client-')) {
                 window.location.href = '/ui/dashboard';
@@ -29,8 +24,7 @@
                 path === '/ui/dashboard' ||
                 path === '/ui/api-managers' ||
                 path === '/ui/wabas' ||
-                path === '/ui/clients' ||
-                path === '/ui/waba-requests'
+                path === '/ui/clients'
             )) {
                 window.location.href = '/ui/client-dashboard';
             }
@@ -42,12 +36,10 @@
     {% block body %}{% endblock %}
 
     <script>
+        // ============== HELPER API ==============
         async function apiFetch(url, options = {}) {
             const token = localStorage.getItem('token');
-            if (!token) {
-                window.location.href = '/login';
-                return null;
-            }
+            if (!token) { window.location.href = '/login'; return null; }
             const headers = {
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token,
@@ -66,6 +58,55 @@
             localStorage.clear();
             window.location.href = '/login';
         }
+
+        // ============== BADGE POLLING ==============
+        async function updateBadges() {
+            const role = localStorage.getItem('role');
+            const token = localStorage.getItem('token');
+            if (!token) return;
+
+            if (role === 'super_admin') {
+                const badge = document.getElementById('adminChatBadge');
+                if (!badge) return;
+                try {
+                    const res = await fetch('/chat/admin/unread-count', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.unread > 0) {
+                            badge.textContent = data.unread;
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
+                    }
+                } catch (e) { console.error('Badge admin error:', e); }
+            } else if (role === 'client_admin') {
+                const badge = document.getElementById('clientChatBadge');
+                if (!badge) return;
+                try {
+                    const res = await fetch('/chat/my-unread-count', {
+                        headers: { 'Authorization': 'Bearer ' + token }
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data.unread > 0) {
+                            badge.textContent = data.unread;
+                            badge.classList.remove('hidden');
+                        } else {
+                            badge.classList.add('hidden');
+                        }
+                    }
+                } catch (e) { console.error('Badge client error:', e); }
+            }
+        }
+
+        // Jalankan setelah DOM ready
+        document.addEventListener('DOMContentLoaded', () => {
+            updateBadges();
+            setInterval(updateBadges, 10000);  // refresh tiap 10 detik
+        });
     </script>
     {% block scripts %}{% endblock %}
 </body>

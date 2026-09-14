@@ -10,7 +10,7 @@
             <a href="/ui/dashboard" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/dashboard">📊 Dashboard</a>
             <a href="/ui/admin-chat" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800 relative" data-path="/ui/admin-chat">
                 💬 Chat Klien
-                <span id="adminChatBadge" class="hidden absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full"></span>
+                <span id="adminChatBadge" class="hidden absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-bold">0</span>
             </a>
             <a href="/ui/api-managers" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/api-managers">⚙️ API Manager</a>
             <a href="/ui/wabas" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/wabas">📱 WABA</a>
@@ -35,24 +35,5 @@
             link.classList.remove('hover:bg-gray-800');
         }
     });
-
-    // Poll admin chat unread count
-    async function updateAdminBadge() {
-        try {
-            const res = await apiFetch('/chat/admin/unread-count');
-            if (res) {
-                const data = await res.json();
-                const badge = document.getElementById('adminChatBadge');
-                if (data.unread > 0) {
-                    badge.textContent = data.unread;
-                    badge.classList.remove('hidden');
-                } else {
-                    badge.classList.add('hidden');
-                }
-            }
-        } catch(e) {}
-    }
-    updateAdminBadge();
-    setInterval(updateAdminBadge, 15000);
 </script>
 {% endblock %}
