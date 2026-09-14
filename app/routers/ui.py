@@ -26,11 +26,12 @@ def wabas_page(request: Request):
     return templates.TemplateResponse("wabas.html", {"request": request})
 
 
-@router.get("/ui/clients", response_class=HTMLResponse)
-def clients_page(request: Request):
-    return templates.TemplateResponse("clients.html", {"request": request})
+# Nanti diaktifkan di sub-batch berikutnya:
+# @router.get("/ui/clients", response_class=HTMLResponse)
+# def clients_page(request: Request):
+#     return templates.TemplateResponse("clients.html", {"request": request})
 
 
-@router.get("/ui/monitoring", response_class=HTMLResponse)
-def monitoring_page(request: Request):
-    return templates.TemplateResponse("monitoring.html", {"request": request})
+# @router.get("/ui/monitoring", response_class=HTMLResponse)
+# def monitoring_page(request: Request):
+#     return templates.TemplateResponse("monitoring.html", {"request": request})

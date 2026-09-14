@@ -1,0 +1,262 @@
+{% extends "layout_admin.html" %}
+{% block title %}WABA - WA Panel{% endblock %}
+{% block content %}
+<div x-data="wabasPage()" x-init="load()">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">📱 WABA Management</h2>
+        <button @click="openCreate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
+            + Tambah WABA
+        </button>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-white p-4 rounded-xl shadow mb-4 flex gap-4 items-center">
+        <label class="text-sm text-gray-600">Filter by API Manager:</label>
+        <select x-model="filterApiManager" @change="load()" class="px-3 py-2 border rounded-lg">
+            <option value="">Semua</option>
+            <template x-for="am in apiManagers" :key="am.id">
+                <option :value="am.id" x-text="am.name"></option>
+            </template>
+        </select>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Phone Number</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Display Name</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">WABA ID</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">API Manager</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Quality</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr>
+                        <td colspan="7" class="px-4 py-8 text-center text-gray-400">
+                            Belum ada WABA. Klik "Tambah WABA" untuk mulai.
+                        </td>
+                    </tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3 font-medium" x-text="item.display_phone_number || '-'"></td>
+                        <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
+                        <td class="px-4 py-3 font-mono text-xs" x-text="item.waba_id"></td>
+                        <td class="px-4 py-3 text-xs" x-text="getApiManagerName(item.api_manager_id)"></td>
+                        <td class="px-4 py-3">
+                            <span :class="qualityClass(item.quality_rating)" 
+                                  class="px-2 py-1 rounded text-xs font-semibold"
+                                  x-text="qualityLabel(item.quality_rating)"></span>
+                        </td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <button @click="openEdit(item)" class="text-blue-600 hover:underline text-sm">Edit</button>
+                            <button @click="confirmDelete(item)" class="text-red-600 hover:underline text-sm">Hapus</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Form -->
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto" @click.away="showModal = false">
+            <h3 class="text-xl font-bold mb-4" x-text="editingId ? 'Edit WABA' : 'Tambah WABA'"></h3>
+
+            <template x-if="error">
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API Manager *</label>
+                    <select x-model="form.api_manager_id" :disabled="!!editingId" required
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
+                        <option value="">-- Pilih API Manager --</option>
+                        <template x-for="am in apiManagers" :key="am.id">
+                            <option :value="am.id" x-text="am.name"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">WABA ID *</label>
+                    <input type="text" x-model="form.waba_id" :disabled="!!editingId" required
+                        placeholder="Contoh: 1234567890"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 font-mono text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number ID *</label>
+                    <input type="text" x-model="form.phone_number_id" :disabled="!!editingId" required
+                        placeholder="Contoh: 1234567890"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100 font-mono text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Display Phone Number</label>
+                    <input type="text" x-model="form.display_phone_number"
+                        placeholder="Contoh: +62 812-3456-7890"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Display Name</label>
+                    <input type="text" x-model="form.display_name"
+                        placeholder="Contoh: Toko ABC"
+                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                </div>
+                <template x-if="editingId">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Quality Rating</label>
+                        <select x-model="form.quality_rating" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="GREEN">🟢 Green</option>
+                            <option value="YELLOW">🟡 Yellow</option>
+                            <option value="RED">🔴 Red</option>
+                            <option value="UNKNOWN">⚪ Unknown</option>
+                        </select>
+                    </div>
+                </template>
+                <template x-if="editingId">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" x-model="form.is_active" id="waba_is_active" class="rounded">
+                        <label for="waba_is_active" class="text-sm text-gray-700">Active</label>
+                    </div>
+                </template>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-6">
+                <button @click="showModal = false" class="px-4 py-2 rounded-lg border hover:bg-gray-50">Batal</button>
+                <button @click="save" :disabled="saving"
+                    class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                    <span x-show="!saving">Simpan</span>
+                    <span x-show="saving">Menyimpan...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function wabasPage() {
+    return {
+        items: [],
+        apiManagers: [],
+        filterApiManager: '',
+        showModal: false,
+        editingId: null,
+        saving: false,
+        error: '',
+        form: { api_manager_id: '', waba_id: '', phone_number_id: '', display_phone_number: '', display_name: '', quality_rating: 'UNKNOWN', is_active: true },
+
+        async load() {
+            // Load API Managers untuk dropdown
+            const amRes = await apiFetch('/api-managers');
+            if (amRes) this.apiManagers = await amRes.json();
+
+            // Load WABA (dengan filter jika ada)
+            const url = this.filterApiManager ? `/wabas?api_manager_id=${this.filterApiManager}` : '/wabas';
+            const res = await apiFetch(url);
+            if (res) this.items = await res.json();
+        },
+
+        getApiManagerName(id) {
+            const am = this.apiManagers.find(x => x.id === id);
+            return am ? am.name : `#${id}`;
+        },
+
+        qualityLabel(rating) {
+            const map = { GREEN: '🟢 Green', YELLOW: '🟡 Yellow', RED: '🔴 Red', UNKNOWN: '⚪ Unknown' };
+            return map[rating] || rating;
+        },
+
+        qualityClass(rating) {
+            const map = {
+                GREEN: 'bg-green-100 text-green-700',
+                YELLOW: 'bg-yellow-100 text-yellow-700',
+                RED: 'bg-red-100 text-red-700',
+                UNKNOWN: 'bg-gray-100 text-gray-700',
+            };
+            return map[rating] || map.UNKNOWN;
+        },
+
+        openCreate() {
+            this.editingId = null;
+            this.error = '';
+            this.form = { api_manager_id: '', waba_id: '', phone_number_id: '', display_phone_number: '', display_name: '', quality_rating: 'UNKNOWN', is_active: true };
+            this.showModal = true;
+        },
+
+        openEdit(item) {
+            this.editingId = item.id;
+            this.error = '';
+            this.form = {
+                api_manager_id: item.api_manager_id,
+                waba_id: item.waba_id,
+                phone_number_id: item.phone_number_id,
+                display_phone_number: item.display_phone_number || '',
+                display_name: item.display_name || '',
+                quality_rating: item.quality_rating,
+                is_active: item.is_active,
+            };
+            this.showModal = true;
+        },
+
+        async save() {
+            this.saving = true;
+            this.error = '';
+            try {
+                const url = this.editingId ? `/wabas/${this.editingId}` : '/wabas';
+                const method = this.editingId ? 'PUT' : 'POST';
+                
+                let payload;
+                if (this.editingId) {
+                    // Update: hanya field yang boleh diubah
+                    payload = {
+                        display_name: this.form.display_name,
+                        quality_rating: this.form.quality_rating,
+                        is_active: this.form.is_active,
+                    };
+                } else {
+                    payload = { ...this.form };
+                    delete payload.quality_rating;
+                    delete payload.is_active;
+                }
+
+                const res = await apiFetch(url, {
+                    method,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    this.error = data.detail || 'Gagal menyimpan';
+                    return;
+                }
+                this.showModal = false;
+                await this.load();
+            } catch (e) {
+                this.error = 'Error: ' + e.message;
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async confirmDelete(item) {
+            if (!confirm(`Yakin hapus WABA "${item.display_phone_number || item.waba_id}"?`)) return;
+            const res = await apiFetch(`/wabas/${item.id}`, { method: 'DELETE' });
+            if (res && res.ok) {
+                await this.load();
+            } else if (res) {
+                const data = await res.json();
+                alert(data.detail || 'Gagal menghapus');
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
