@@ -14,3 +14,23 @@ def login_page(request: Request):
 @router.get("/ui/dashboard", response_class=HTMLResponse)
 def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
+@router.get("/ui/api-managers", response_class=HTMLResponse)
+def api_managers_page(request: Request):
+    return templates.TemplateResponse("api_managers.html", {"request": request})
+
+
+@router.get("/ui/wabas", response_class=HTMLResponse)
+def wabas_page(request: Request):
+    return templates.TemplateResponse("wabas.html", {"request": request})
+
+
+@router.get("/ui/clients", response_class=HTMLResponse)
+def clients_page(request: Request):
+    return templates.TemplateResponse("clients.html", {"request": request})
+
+
+@router.get("/ui/monitoring", response_class=HTMLResponse)
+def monitoring_page(request: Request):
+    return templates.TemplateResponse("monitoring.html", {"request": request})

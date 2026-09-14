@@ -6,10 +6,9 @@ from app import models
 from app.security import hash_password
 from app.config import settings
 
-# Buat tabel otomatis (untuk prototipe)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WA Panel API", version="0.2.0")
+app = FastAPI(title="WA Panel API", version="0.3.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -19,7 +18,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Static files (CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -49,8 +47,9 @@ def root():
 
 
 # Register routers
-from app.routers import auth, dashboard, ui
+from app.routers import auth, dashboard, ui, api_managers
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(ui.router)
+app.include_router(api_managers.router)
