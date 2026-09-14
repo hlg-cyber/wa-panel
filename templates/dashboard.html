@@ -4,7 +4,7 @@
 <div x-data="dashboard()" x-init="load()">
     <h2 class="text-2xl font-bold text-gray-800 mb-6">Dashboard</h2>
 
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
         <div class="bg-white p-6 rounded-xl shadow">
             <div class="text-3xl font-bold text-blue-600" x-text="stats.total_api_managers">0</div>
             <div class="text-gray-500 text-sm mt-1">API Manager</div>
@@ -16,6 +16,10 @@
         <div class="bg-white p-6 rounded-xl shadow">
             <div class="text-3xl font-bold text-purple-600" x-text="stats.total_wabas">0</div>
             <div class="text-gray-500 text-sm mt-1">Total WABA</div>
+        </div>
+        <div class="bg-white p-6 rounded-xl shadow border-l-4 border-yellow-500">
+            <div class="text-3xl font-bold text-yellow-600" x-text="stats.pending_waba_requests">0</div>
+            <div class="text-gray-500 text-sm mt-1">Permintaan WABA Pending</div>
         </div>
     </div>
 
@@ -35,12 +39,9 @@
 function dashboard() {
     return {
         stats: {
-            total_api_managers: 0,
-            active_clients: 0,
-            total_wabas: 0,
-            wabas_green: 0,
-            wabas_yellow: 0,
-            wabas_red: 0,
+            total_api_managers: 0, active_clients: 0, total_wabas: 0,
+            wabas_green: 0, wabas_yellow: 0, wabas_red: 0,
+            pending_waba_requests: 0,
         },
         async load() {
             const res = await apiFetch('/dashboard/stats');

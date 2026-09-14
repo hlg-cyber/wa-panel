@@ -31,6 +31,13 @@ class TemplateStatus(str, enum.Enum):
     rejected = "rejected"
 
 
+class WabaRequestStatus(str, enum.Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    cancelled = "cancelled"
+
+
 # =====================
 # USERS
 # =====================
@@ -63,6 +70,7 @@ class Client(Base):
     contacts = relationship("Contact", back_populates="client")
     broadcasts = relationship("Broadcast", back_populates="client")
     templates = relationship("MessageTemplate", back_populates="client")
+    waba_requests = relationship("WabaRequest", back_populates="client")
 
 
 # =====================
@@ -77,6 +85,7 @@ class ApiManager(Base):
     app_secret_encrypted = Column(Text, nullable=False)
     access_token_encrypted = Column(Text, nullable=False)
     business_manager_id = Column(String, nullable=True)
+    max_waba_slots = Column(Integer, default=5)  # BARU
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -90,10 +99,10 @@ class ApiManager(Base):
 class Waba(Base):
     __tablename__ = "wabas"
     id = Column(Integer, primary_key=True)
-    api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=False)
+    api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)  # nullable: bisa pending dulu
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
-    waba_id = Column(String, unique=True, nullable=False)
-    phone_number_id = Column(String, nullable=False)
+    waba_id = Column(String, unique=True, nullable=True)  # nullable untuk pending
+    phone_number_id = Column(String, nullable=True)
     display_phone_number = Column(String, nullable=True)
     display_name = Column(String, nullable=True)
     quality_rating = Column(Enum(QualityRating), default=QualityRating.unknown)
@@ -102,6 +111,27 @@ class Waba(Base):
 
     api_manager = relationship("ApiManager", back_populates="wabas")
     client = relationship("Client", back_populates="wabas")
+
+
+# =====================
+# WABA REQUESTS
+# =====================
+class WabaRequest(Base):
+    __tablename__ = "waba_requests"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    phone_number = Column(String, nullable=False)
+    display_name = Column(String, nullable=True)
+    notes = Column(Text, nullable=True)
+    status = Column(Enum(WabaRequestStatus), default=WabaRequestStatus.pending)
+    api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)
+    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    otp_verified = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    reviewed_at = Column(DateTime(timezone=True), nullable=True)
+
+    client = relationship("Client", back_populates="waba_requests")
 
 
 # =====================

@@ -1,8 +1,7 @@
 {% extends "layout_admin.html" %}
-{% block title %}API Manager - WA Panel{% endblock %}
+{% block title %}API Manager{% endblock %}
 {% block content %}
 <div x-data="apiManagersPage()" x-init="load()">
-    <!-- Header -->
     <div class="flex justify-between items-center mb-6">
         <h2 class="text-2xl font-bold text-gray-800">⚙️ API Manager</h2>
         <button @click="openCreate()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
@@ -10,7 +9,6 @@
         </button>
     </div>
 
-    <!-- Table -->
     <div class="bg-white rounded-xl shadow overflow-hidden">
         <table class="w-full text-sm">
             <thead class="bg-gray-50 border-b">
@@ -18,29 +16,25 @@
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nama</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">App ID</th>
-                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">BM ID</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Max Slot</th>
                     <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
                     <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <template x-if="items.length === 0">
-                    <tr>
-                        <td colspan="6" class="px-4 py-8 text-center text-gray-400">
-                            Belum ada API Manager. Klik "Tambah API Manager" untuk mulai.
-                        </td>
-                    </tr>
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Belum ada API Manager.</td></tr>
                 </template>
                 <template x-for="(item, idx) in items" :key="item.id">
                     <tr class="border-b hover:bg-gray-50">
                         <td class="px-4 py-3" x-text="idx + 1"></td>
                         <td class="px-4 py-3 font-medium" x-text="item.name"></td>
                         <td class="px-4 py-3 font-mono text-xs" x-text="item.app_id"></td>
-                        <td class="px-4 py-3 font-mono text-xs" x-text="item.business_manager_id || '-'"></td>
+                        <td class="px-4 py-3 font-semibold text-blue-600" x-text="item.max_waba_slots"></td>
                         <td class="px-4 py-3">
-                            <span :class="item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" 
-                                  class="px-2 py-1 rounded text-xs font-semibold"
-                                  x-text="item.is_active ? 'Active' : 'Inactive'"></span>
+                            <span :class="item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'"
+                                class="px-2 py-1 rounded text-xs font-semibold"
+                                x-text="item.is_active ? 'Active' : 'Inactive'"></span>
                         </td>
                         <td class="px-4 py-3 text-right space-x-2">
                             <button @click="openEdit(item)" class="text-blue-600 hover:underline text-sm">Edit</button>
@@ -52,9 +46,8 @@
         </table>
     </div>
 
-    <!-- Modal Form -->
     <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6" @click.away="showModal = false">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
             <h3 class="text-xl font-bold mb-4" x-text="editingId ? 'Edit API Manager' : 'Tambah API Manager'"></h3>
 
             <template x-if="error">
@@ -64,45 +57,44 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nama *</label>
-                    <input type="text" x-model="form.name" required
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="text" x-model="form.name" required class="w-full px-4 py-2 border rounded-lg">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">App ID *</label>
-                    <input type="text" x-model="form.app_id" :disabled="!!editingId" required
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100">
+                    <input type="text" x-model="form.app_id" :disabled="!!editingId" required class="w-full px-4 py-2 border rounded-lg disabled:bg-gray-100">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         App Secret <span x-show="editingId" class="text-xs text-gray-500">(kosongkan jika tidak diubah)</span>
                     </label>
-                    <input type="password" x-model="form.app_secret" :required="!editingId"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="password" x-model="form.app_secret" :required="!editingId" class="w-full px-4 py-2 border rounded-lg">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">
                         Access Token <span x-show="editingId" class="text-xs text-gray-500">(kosongkan jika tidak diubah)</span>
                     </label>
-                    <textarea x-model="form.access_token" :required="!editingId" rows="3"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 font-mono text-xs"></textarea>
+                    <textarea x-model="form.access_token" :required="!editingId" rows="3" class="w-full px-4 py-2 border rounded-lg font-mono text-xs"></textarea>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Business Manager ID</label>
-                    <input type="text" x-model="form.business_manager_id"
-                        class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
+                    <input type="text" x-model="form.business_manager_id" class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Max WABA Slots *</label>
+                    <input type="number" x-model.number="form.max_waba_slots" min="1" required class="w-full px-4 py-2 border rounded-lg">
+                    <p class="text-xs text-gray-500 mt-1">Jumlah maksimal WABA yang bisa di-mapping ke BM ini.</p>
                 </div>
                 <template x-if="editingId">
                     <div class="flex items-center gap-2">
-                        <input type="checkbox" x-model="form.is_active" id="is_active" class="rounded">
-                        <label for="is_active" class="text-sm text-gray-700">Active</label>
+                        <input type="checkbox" x-model="form.is_active" id="am_is_active">
+                        <label for="am_is_active" class="text-sm">Active</label>
                     </div>
                 </template>
             </div>
 
             <div class="flex justify-end gap-2 mt-6">
                 <button @click="showModal = false" class="px-4 py-2 rounded-lg border hover:bg-gray-50">Batal</button>
-                <button @click="save" :disabled="saving"
-                    class="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50">
+                <button @click="save" :disabled="saving" class="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
                     <span x-show="!saving">Simpan</span>
                     <span x-show="saving">Menyimpan...</span>
                 </button>
@@ -116,79 +108,48 @@
 <script>
 function apiManagersPage() {
     return {
-        items: [],
-        showModal: false,
-        editingId: null,
-        saving: false,
-        error: '',
-        form: { name: '', app_id: '', app_secret: '', access_token: '', business_manager_id: '', is_active: true },
-
+        items: [], showModal: false, editingId: null, saving: false, error: '',
+        form: { name: '', app_id: '', app_secret: '', access_token: '', business_manager_id: '', max_waba_slots: 5, is_active: true },
         async load() {
             const res = await apiFetch('/api-managers');
             if (res) this.items = await res.json();
         },
-
         openCreate() {
-            this.editingId = null;
-            this.error = '';
-            this.form = { name: '', app_id: '', app_secret: '', access_token: '', business_manager_id: '', is_active: true };
+            this.editingId = null; this.error = '';
+            this.form = { name: '', app_id: '', app_secret: '', access_token: '', business_manager_id: '', max_waba_slots: 5, is_active: true };
             this.showModal = true;
         },
-
         openEdit(item) {
-            this.editingId = item.id;
-            this.error = '';
+            this.editingId = item.id; this.error = '';
             this.form = {
-                name: item.name,
-                app_id: item.app_id,
-                app_secret: '',
-                access_token: '',
+                name: item.name, app_id: item.app_id, app_secret: '', access_token: '',
                 business_manager_id: item.business_manager_id || '',
-                is_active: item.is_active,
+                max_waba_slots: item.max_waba_slots, is_active: item.is_active,
             };
             this.showModal = true;
         },
-
         async save() {
-            this.saving = true;
-            this.error = '';
+            this.saving = true; this.error = '';
             try {
                 const url = this.editingId ? `/api-managers/${this.editingId}` : '/api-managers';
                 const method = this.editingId ? 'PUT' : 'POST';
-                const payload = {...this.form};
-                
+                const payload = { ...this.form };
                 if (this.editingId) {
                     if (!payload.app_secret) delete payload.app_secret;
                     if (!payload.access_token) delete payload.access_token;
                 }
-
-                const res = await apiFetch(url, {
-                    method,
-                    body: JSON.stringify(payload)
-                });
+                const res = await apiFetch(url, { method, body: JSON.stringify(payload) });
                 const data = await res.json();
-                if (!res.ok) {
-                    this.error = data.detail || 'Gagal menyimpan';
-                    return;
-                }
+                if (!res.ok) { this.error = data.detail || 'Gagal'; return; }
                 this.showModal = false;
                 await this.load();
-            } catch (e) {
-                this.error = 'Error: ' + e.message;
-            } finally {
-                this.saving = false;
-            }
+            } finally { this.saving = false; }
         },
-
         async confirmDelete(item) {
-            if (!confirm(`Yakin hapus API Manager "${item.name}"?`)) return;
+            if (!confirm(`Hapus API Manager "${item.name}"?`)) return;
             const res = await apiFetch(`/api-managers/${item.id}`, { method: 'DELETE' });
-            if (res && res.ok) {
-                await this.load();
-            } else if (res) {
-                const data = await res.json();
-                alert(data.detail || 'Gagal menghapus');
-            }
+            if (res && res.ok) await this.load();
+            else if (res) { const d = await res.json(); alert(d.detail); }
         }
     }
 }

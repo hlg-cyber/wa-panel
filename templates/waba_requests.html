@@ -1,0 +1,221 @@
+{% extends "layout_admin.html" %}
+{% block title %}Permintaan WABA{% endblock %}
+{% block content %}
+<div x-data="wabaRequestsAdmin()" x-init="load()">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">📥 Permintaan WABA</h2>
+        <button @click="load()" class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm">🔄 Refresh</button>
+    </div>
+
+    <!-- Info API Manager Status -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+        <h3 class="font-semibold text-gray-700 mb-3 text-sm">⚙️ Status Slot API Manager</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <template x-for="am in apiManagersStatus" :key="am.id">
+                <div class="border rounded-lg p-3 text-sm">
+                    <div class="font-medium" x-text="am.name"></div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="`${am.used_slots} / ${am.max_waba_slots} slot`"></span>
+                        <span :class="am.is_full ? 'text-red-600 ml-2' : 'text-green-600 ml-2'" x-text="am.is_full ? '(PENUH)' : `(${am.available_slots} kosong)`"></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                        <div :class="am.is_full ? 'bg-red-500' : 'bg-green-500'" class="h-2 rounded-full"
+                            :style="`width: ${Math.min(100, am.used_slots / am.max_waba_slots * 100)}%`"></div>
+                    </div>
+                </div>
+            </template>
+            <template x-if="apiManagersStatus.length === 0">
+                <div class="col-span-3 text-center text-gray-400 text-sm py-4">Belum ada API Manager.</div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Table -->
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Klien</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nomor</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Display Name</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Belum ada permintaan.</td></tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3 text-xs" x-text="getClientName(item.client_id)"></td>
+                        <td class="px-4 py-3 font-mono text-xs" x-text="item.phone_number"></td>
+                        <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
+                        <td class="px-4 py-3">
+                            <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.status"></span>
+                        </td>
+                        <td class="px-4 py-3 text-right space-x-2">
+                            <template x-if="item.status === 'pending'">
+                                <div class="space-x-2">
+                                    <button @click="openApprove(item)" class="text-green-600 hover:underline text-sm font-semibold">Approve</button>
+                                    <button @click="openReject(item)" class="text-red-600 hover:underline text-sm">Reject</button>
+                                </div>
+                            </template>
+                            <template x-if="item.status === 'approved'">
+                                <span class="text-green-600 text-xs">✅ Selesai</span>
+                            </template>
+                            <template x-if="item.status === 'rejected'">
+                                <span class="text-red-600 text-xs">❌ Ditolak</span>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Approve -->
+    <div x-show="showApprove" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Approve WABA</h3>
+            <template x-if="error">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Mapping Mode</label>
+                    <div class="flex gap-4">
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" x-model="approveForm.mode" value="auto">
+                            <span>🤖 Otomatis (Load Balanced)</span>
+                        </label>
+                        <label class="flex items-center gap-2 text-sm">
+                            <input type="radio" x-model="approveForm.mode" value="manual">
+                            <span>🎯 Manual</span>
+                        </label>
+                    </div>
+                </div>
+
+                <template x-if="approveForm.mode === 'manual'">
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Pilih API Manager</label>
+                        <select x-model="approveForm.api_manager_id" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="">-- Pilih --</option>
+                            <template x-for="am in apiManagersStatus" :key="am.id">
+                                <option :value="am.id" :disabled="am.is_full"
+                                    x-text="`${am.name} (${am.used_slots}/${am.max_waba_slots}${am.is_full ? ' - PENUH' : ''})`"></option>
+                            </template>
+                        </select>
+                    </div>
+                </template>
+
+                <div class="border-t pt-3">
+                    <p class="text-xs text-gray-500 mb-2">Opsional: Isi WABA ID & Phone Number ID jika sudah dibuat di Meta</p>
+                    <input type="text" x-model="approveForm.waba_id" placeholder="WABA ID (opsional)"
+                        class="w-full px-4 py-2 border rounded-lg font-mono text-xs mb-2">
+                    <input type="text" x-model="approveForm.phone_number_id" placeholder="Phone Number ID (opsional)"
+                        class="w-full px-4 py-2 border rounded-lg font-mono text-xs">
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showApprove = false" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="approve" :disabled="saving" class="px-4 py-2 rounded-lg bg-green-600 text-white disabled:opacity-50">
+                    <span x-show="!saving">Approve</span>
+                    <span x-show="saving">Memproses...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Reject -->
+    <div x-show="showReject" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Tolak Permintaan</h3>
+            <textarea x-model="rejectReason" rows="3" placeholder="Alasan penolakan..." class="w-full px-4 py-2 border rounded-lg"></textarea>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showReject = false" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="reject" class="px-4 py-2 rounded-lg bg-red-600 text-white">Tolak</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function wabaRequestsAdmin() {
+    return {
+        items: [], apiManagersStatus: [], clients: [],
+        showApprove: false, showReject: false, saving: false, error: '',
+        approveForm: { mode: 'auto', api_manager_id: '', waba_id: '', phone_number_id: '' },
+        selectedRequest: null,
+        rejectReason: '',
+        async load() {
+            const [reqRes, amRes, clRes] = await Promise.all([
+                apiFetch('/waba-requests/admin/all'),
+                apiFetch('/waba-requests/admin/api-managers-status'),
+                apiFetch('/clients'),
+            ]);
+            if (reqRes) this.items = await reqRes.json();
+            if (amRes) this.apiManagersStatus = await amRes.json();
+            if (clRes) this.clients = await clRes.json();
+        },
+        getClientName(id) {
+            const c = this.clients.find(x => x.id === id);
+            return c ? c.name : `#${id}`;
+        },
+        openApprove(item) {
+            this.selectedRequest = item;
+            this.approveForm = { mode: 'auto', api_manager_id: '', waba_id: '', phone_number_id: '' };
+            this.error = '';
+            this.showApprove = true;
+        },
+        openReject(item) {
+            this.selectedRequest = item;
+            this.rejectReason = '';
+            this.showReject = true;
+        },
+        async approve() {
+            this.saving = true; this.error = '';
+            try {
+                const payload = {
+                    auto: this.approveForm.mode === 'auto',
+                    api_manager_id: this.approveForm.mode === 'manual' ? parseInt(this.approveForm.api_manager_id) : null,
+                    waba_id: this.approveForm.waba_id || null,
+                    phone_number_id: this.approveForm.phone_number_id || null,
+                };
+                const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/approve`, {
+                    method: 'POST', body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (!res.ok) { this.error = data.detail; return; }
+                this.showApprove = false;
+                await this.load();
+            } finally { this.saving = false; }
+        },
+        async reject() {
+            const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/reject`, {
+                method: 'POST', body: JSON.stringify({ reason: this.rejectReason })
+            });
+            if (res.ok) {
+                this.showReject = false;
+                await this.load();
+            }
+        },
+        statusClass(s) {
+            const m = {
+                pending: 'bg-yellow-100 text-yellow-700',
+                approved: 'bg-green-100 text-green-700',
+                rejected: 'bg-red-100 text-red-700',
+                cancelled: 'bg-gray-100 text-gray-700',
+            };
+            return m[s] || m.pending;
+        }
+    }
+}
+</script>
+{% endblock %}

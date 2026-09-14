@@ -1,0 +1,132 @@
+{% extends "layout_client.html" %}
+{% block title %}Ajukan WABA{% endblock %}
+{% block content %}
+<div x-data="wabaRequestPage()" x-init="load()">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">➕ Ajukan WABA Baru</h2>
+        <button @click="showModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold">
+            + Ajukan WABA
+        </button>
+    </div>
+
+    <div class="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg mb-4 text-sm">
+        💡 <strong>Info:</strong> Setelah Anda mengajukan WABA, admin akan memprosesnya. Anda akan menerima notifikasi setelah WABA aktif.
+    </div>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nomor</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Display Name</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Tanggal</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="6" class="px-4 py-8 text-center text-gray-400">Belum ada pengajuan.</td></tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3 font-mono text-xs" x-text="item.phone_number"></td>
+                        <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
+                        <td class="px-4 py-3">
+                            <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.status"></span>
+                            <template x-if="item.status === 'rejected' && item.rejection_reason">
+                                <div class="text-xs text-red-600 mt-1" x-text="'Alasan: ' + item.rejection_reason"></div>
+                            </template>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-500" x-text="formatDate(item.created_at)"></td>
+                        <td class="px-4 py-3 text-right">
+                            <template x-if="item.status === 'pending'">
+                                <button @click="cancel(item)" class="text-red-600 hover:underline text-sm">Batalkan</button>
+                            </template>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal -->
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Ajukan WABA Baru</h3>
+            <template x-if="error">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nomor WhatsApp * (format: 62812xxx)</label>
+                    <input type="text" x-model="form.phone_number" placeholder="6281234567890" class="w-full px-4 py-2 border rounded-lg font-mono">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Display Name</label>
+                    <input type="text" x-model="form.display_name" placeholder="Nama Bisnis Anda" class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Catatan Tambahan (opsional)</label>
+                    <textarea x-model="form.notes" rows="2" class="w-full px-4 py-2 border rounded-lg text-sm"></textarea>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="save" :disabled="saving" class="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
+                    <span x-show="!saving">Ajukan</span>
+                    <span x-show="saving">Mengirim...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function wabaRequestPage() {
+    return {
+        items: [], showModal: false, saving: false, error: '',
+        form: { phone_number: '', display_name: '', notes: '' },
+        async load() {
+            const res = await apiFetch('/waba-requests');
+            if (res) this.items = await res.json();
+        },
+        async save() {
+            this.saving = true; this.error = '';
+            try {
+                const res = await apiFetch('/waba-requests', {
+                    method: 'POST', body: JSON.stringify(this.form)
+                });
+                const data = await res.json();
+                if (!res.ok) { this.error = data.detail; return; }
+                this.showModal = false;
+                this.form = { phone_number: '', display_name: '', notes: '' };
+                await this.load();
+            } finally { this.saving = false; }
+        },
+        async cancel(item) {
+            if (!confirm(`Batalkan pengajuan ${item.phone_number}?`)) return;
+            await apiFetch(`/waba-requests/${item.id}/cancel`, { method: 'POST' });
+            await this.load();
+        },
+        formatDate(iso) {
+            if (!iso) return '-';
+            return new Date(iso).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+        },
+        statusClass(s) {
+            const m = {
+                pending: 'bg-yellow-100 text-yellow-700',
+                approved: 'bg-green-100 text-green-700',
+                rejected: 'bg-red-100 text-red-700',
+                cancelled: 'bg-gray-100 text-gray-700',
+            };
+            return m[s] || m.pending;
+        }
+    }
+}
+</script>
+{% endblock %}

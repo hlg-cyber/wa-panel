@@ -6,6 +6,7 @@ from app import models
 from app.schemas import ApiManagerCreate, ApiManagerUpdate, ApiManagerOut
 from app.deps import require_super_admin
 from app.security import encrypt_token
+from app.services import waba_mapper
 
 router = APIRouter(prefix="/api-managers", tags=["API Manager"])
 
@@ -16,6 +17,15 @@ def list_api_managers(
     _: models.User = Depends(require_super_admin),
 ):
     return db.query(models.ApiManager).order_by(models.ApiManager.id.desc()).all()
+
+
+@router.get("/status")
+def list_api_managers_with_status(
+    db: Session = Depends(get_db),
+    _: models.User = Depends(require_super_admin),
+):
+    """List API Manager + slot info (untuk auto-mapping UI)."""
+    return waba_mapper.get_all_api_managers_status(db)
 
 
 @router.get("/{api_manager_id}", response_model=ApiManagerOut)
@@ -42,6 +52,7 @@ def create_api_manager(
         app_secret_encrypted=encrypt_token(payload.app_secret),
         access_token_encrypted=encrypt_token(payload.access_token),
         business_manager_id=payload.business_manager_id,
+        max_waba_slots=payload.max_waba_slots,
         client_id=payload.client_id,
     )
     db.add(obj)
@@ -69,6 +80,8 @@ def update_api_manager(
         obj.app_secret_encrypted = encrypt_token(payload.app_secret)
     if payload.access_token:
         obj.access_token_encrypted = encrypt_token(payload.access_token)
+    if payload.max_waba_slots is not None:
+        obj.max_waba_slots = payload.max_waba_slots
     if payload.is_active is not None:
         obj.is_active = payload.is_active
 
@@ -87,14 +100,12 @@ def delete_api_manager(
     if not obj:
         raise HTTPException(status_code=404, detail="API Manager tidak ditemukan")
 
-    # Cek apakah masih ada WABA yang terhubung
     waba_count = db.query(models.Waba).filter(models.Waba.api_manager_id == api_manager_id).count()
     if waba_count > 0:
         raise HTTPException(
             status_code=400,
-            detail=f"Tidak bisa hapus. Masih ada {waba_count} WABA terhubung. Hapus WABA dulu.",
+            detail=f"Tidak bisa hapus. Masih ada {waba_count} WABA terhubung.",
         )
-
     db.delete(obj)
     db.commit()
     return None

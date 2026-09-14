@@ -11,7 +11,7 @@ def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
 
-# ============ SUPER ADMIN ============
+# SUPER ADMIN
 @router.get("/ui/dashboard", response_class=HTMLResponse)
 def dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard.html", {"request": request})
@@ -32,10 +32,20 @@ def clients_page(request: Request):
     return templates.TemplateResponse("clients.html", {"request": request})
 
 
-# ============ CLIENT PORTAL ============
+@router.get("/ui/waba-requests", response_class=HTMLResponse)
+def waba_requests_page(request: Request):
+    return templates.TemplateResponse("waba_requests.html", {"request": request})
+
+
+# CLIENT PORTAL
 @router.get("/ui/client-dashboard", response_class=HTMLResponse)
 def client_dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard_client.html", {"request": request})
+
+
+@router.get("/ui/client-waba-request", response_class=HTMLResponse)
+def client_waba_request_page(request: Request):
+    return templates.TemplateResponse("client_waba_request.html", {"request": request})
 
 
 @router.get("/ui/client-chat", response_class=HTMLResponse)

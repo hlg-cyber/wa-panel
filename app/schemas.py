@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List, Any
+from typing import Optional, List
 from datetime import datetime
 from enum import Enum
 
@@ -28,6 +28,13 @@ class TemplateStatusEnum(str, Enum):
     pending = "pending"
     approved = "approved"
     rejected = "rejected"
+
+
+class WabaRequestStatusEnum(str, Enum):
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+    cancelled = "cancelled"
 
 
 # AUTH
@@ -64,6 +71,7 @@ class ApiManagerCreate(BaseModel):
     app_secret: str
     access_token: str
     business_manager_id: Optional[str] = None
+    max_waba_slots: int = 5
     client_id: Optional[int] = None
 
 
@@ -72,6 +80,7 @@ class ApiManagerUpdate(BaseModel):
     app_secret: Optional[str] = None
     access_token: Optional[str] = None
     business_manager_id: Optional[str] = None
+    max_waba_slots: Optional[int] = None
     is_active: Optional[bool] = None
 
 
@@ -80,6 +89,7 @@ class ApiManagerOut(BaseModel):
     name: str
     app_id: str
     business_manager_id: Optional[str]
+    max_waba_slots: int
     client_id: Optional[int]
     is_active: bool
     created_at: datetime
@@ -107,15 +117,51 @@ class WabaUpdate(BaseModel):
 
 class WabaOut(BaseModel):
     id: int
-    api_manager_id: int
+    api_manager_id: Optional[int]
     client_id: Optional[int]
-    waba_id: str
-    phone_number_id: str
+    waba_id: Optional[str]
+    phone_number_id: Optional[str]
     display_phone_number: Optional[str]
     display_name: Optional[str]
     quality_rating: QualityRatingEnum
     is_active: bool
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+# WABA REQUEST
+class WabaRequestCreate(BaseModel):
+    phone_number: str
+    display_name: Optional[str] = None
+    notes: Optional[str] = None
+
+
+class WabaRequestMapping(BaseModel):
+    api_manager_id: Optional[int] = None
+    auto: bool = False
+    waba_id: Optional[str] = None
+    phone_number_id: Optional[str] = None
+
+
+class WabaRequestReject(BaseModel):
+    reason: Optional[str] = None
+
+
+class WabaRequestOut(BaseModel):
+    id: int
+    client_id: int
+    phone_number: str
+    display_name: Optional[str]
+    notes: Optional[str]
+    status: WabaRequestStatusEnum
+    api_manager_id: Optional[int]
+    waba_id: Optional[int]
+    rejection_reason: Optional[str]
+    otp_verified: bool
+    created_at: datetime
+    reviewed_at: Optional[datetime]
 
     class Config:
         from_attributes = True
@@ -153,6 +199,7 @@ class DashboardStats(BaseModel):
     wabas_green: int
     wabas_yellow: int
     wabas_red: int
+    pending_waba_requests: int
 
 
 class ClientDashboardStats(BaseModel):
@@ -167,6 +214,7 @@ class ClientDashboardStats(BaseModel):
     total_messages_delivered: int
     total_messages_read: int
     total_messages_failed: int
+    pending_waba_requests: int
 
 
 # CONTACT
@@ -193,7 +241,7 @@ class ContactOut(BaseModel):
 class SendMessageRequest(BaseModel):
     waba_id: int
     to: str
-    message_type: str = "text"  # text, template, image, document
+    message_type: str = "text"
     text: Optional[str] = None
     template_name: Optional[str] = None
     template_language: Optional[str] = "id"

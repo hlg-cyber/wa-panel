@@ -1,35 +1,33 @@
 {% extends "base.html" %}
 {% block body %}
 <div class="flex min-h-screen">
-    <!-- Sidebar -->
     <aside class="w-64 bg-gray-900 text-white flex-shrink-0">
         <div class="p-6 border-b border-gray-800">
             <h1 class="text-xl font-bold">WA Panel</h1>
             <p class="text-xs text-gray-400 mt-1" id="userEmail"></p>
         </div>
-        <nav class="p-4 space-y-1">
+        <nav class="p-4 space-y-1 text-sm">
             <a href="/ui/dashboard" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/dashboard">📊 Dashboard</a>
             <a href="/ui/api-managers" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/api-managers">⚙️ API Manager</a>
             <a href="/ui/wabas" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/wabas">📱 WABA</a>
+            <a href="/ui/waba-requests" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800 relative" data-path="/ui/waba-requests">
+                📥 Permintaan WABA
+                <span id="pendingBadge" class="hidden absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full"></span>
+            </a>
             <a href="/ui/clients" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/clients">👥 Klien</a>
-            <a href="/ui/monitoring" class="sidebar-link block px-4 py-2 rounded hover:bg-gray-800" data-path="/ui/monitoring">📈 Monitoring</a>
         </nav>
         <div class="p-4 border-t border-gray-800">
             <button onclick="logout()" class="w-full bg-red-600 hover:bg-red-700 py-2 rounded text-sm">Logout</button>
         </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="flex-1 p-8">
         {% block content %}{% endblock %}
     </main>
 </div>
 
 <script>
-    // Set email di sidebar
     document.getElementById('userEmail').textContent = localStorage.getItem('email') || '';
-
-    // Highlight active link
     const currentPath = window.location.pathname;
     document.querySelectorAll('.sidebar-link').forEach(link => {
         if (link.dataset.path === currentPath) {
