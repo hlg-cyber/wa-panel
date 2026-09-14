@@ -1,14 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.database import Base, engine, SessionLocal
 from app import models
 from app.security import hash_password
 from app.config import settings
 
-# Buat tabel otomatis (untuk prototipe; produksi pakai Alembic)
+# Buat tabel otomatis (untuk prototipe)
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WA Panel API", version="0.1.0")
+app = FastAPI(title="WA Panel API", version="0.2.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -18,7 +19,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Seed Super Admin
+# Static files (CSS, JS)
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
 @app.on_event("startup")
 def seed_superadmin():
     db = SessionLocal()
@@ -33,17 +37,20 @@ def seed_superadmin():
             db.add(user)
             db.commit()
             print(f"✅ Super Admin seeded: {settings.SUPERADMIN_EMAIL}")
+        else:
+            print(f"ℹ️  Super Admin already exists: {settings.SUPERADMIN_EMAIL}")
     finally:
         db.close()
+
 
 @app.get("/")
 def root():
     return {"status": "ok", "message": "WA Panel API running"}
 
-# Nanti router kita tambahkan di sini
-# from app.routers import auth, api_managers, wabas, clients, webhook
-# app.include_router(auth.router, prefix="/auth", tags=["Auth"])
-# app.include_router(api_managers.router, prefix="/api-managers", tags=["API Manager"])
-# app.include_router(wabas.router, prefix="/wabas", tags=["WABA"])
-# app.include_router(clients.router, prefix="/clients", tags=["Clients"])
-# app.include_router(webhook.router, prefix="/webhook", tags=["Webhook"])
+
+# Register routers
+from app.routers import auth, dashboard, ui
+
+app.include_router(auth.router)
+app.include_router(dashboard.router)
+app.include_router(ui.router)

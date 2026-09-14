@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Login - WA Panel{% endblock %}
+{% block body %}
+<div class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-500 to-blue-700">
+    <div class="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md" x-data="loginForm()">
+        <div class="text-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">WA Panel</h1>
+            <p class="text-gray-500 mt-1">Super Admin Login</p>
+        </div>
+
+        <template x-if="error">
+            <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+        </template>
+
+        <form @submit.prevent="submit">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input type="email" x-model="email" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                <input type="password" x-model="password" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <button type="submit" :disabled="loading"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50">
+                <span x-show="!loading">Login</span>
+                <span x-show="loading">Loading...</span>
+            </button>
+        </form>
+    </div>
+</div>
+
+<script>
+function loginForm() {
+    return {
+        email: '',
+        password: '',
+        loading: false,
+        error: '',
+        async submit() {
+            this.loading = true;
+            this.error = '';
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({email: this.email, password: this.password})
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    this.error = data.detail || 'Login gagal';
+                    return;
+                }
+                localStorage.setItem('token', data.access_token);
+                localStorage.setItem('role', data.role);
+                localStorage.setItem('email', data.email);
+                window.location.href = '/ui/dashboard';
+            } catch (e) {
+                this.error = 'Koneksi gagal: ' + e.message;
+            } finally {
+                this.loading = false;
+            }
+        }
+    }
+}
+</script>
+{% endblock %}
