@@ -7,7 +7,7 @@
         <button @click="load()" class="bg-gray-100 hover:bg-gray-200 px-4 py-2 rounded-lg text-sm">🔄 Refresh</button>
     </div>
 
-    <!-- Info API Manager Status -->
+    <!-- Status API Manager -->
     <div class="bg-white rounded-xl shadow p-4 mb-4">
         <h3 class="font-semibold text-gray-700 mb-3 text-sm">⚙️ Status Slot API Manager</h3>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -23,9 +23,6 @@
                             :style="`width: ${Math.min(100, am.used_slots / am.max_waba_slots * 100)}%`"></div>
                     </div>
                 </div>
-            </template>
-            <template x-if="apiManagersStatus.length === 0">
-                <div class="col-span-3 text-center text-gray-400 text-sm py-4">Belum ada API Manager.</div>
             </template>
         </div>
     </div>
@@ -55,6 +52,9 @@
                         <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
                         <td class="px-4 py-3">
                             <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.status"></span>
+                            <template x-if="item.registration_error">
+                                <div class="text-xs text-red-600 mt-1" x-text="item.registration_error"></div>
+                            </template>
                         </td>
                         <td class="px-4 py-3 text-right space-x-2">
                             <template x-if="item.status === 'pending'">
@@ -63,7 +63,12 @@
                                     <button @click="openReject(item)" class="text-red-600 hover:underline text-sm">Reject</button>
                                 </div>
                             </template>
-                            <template x-if="item.status === 'approved'">
+                            <template x-if="['approved', 'registering', 'failed'].includes(item.status)">
+                                <button @click="openWizard(item)" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-xs font-semibold">
+                                    🔧 Registrasi
+                                </button>
+                            </template>
+                            <template x-if="item.status === 'registered'">
                                 <span class="text-green-600 text-xs">✅ Selesai</span>
                             </template>
                             <template x-if="item.status === 'rejected'">
@@ -83,14 +88,13 @@
             <template x-if="error">
                 <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
             </template>
-
             <div class="space-y-3">
                 <div>
                     <label class="block text-sm font-medium mb-2">Mapping Mode</label>
                     <div class="flex gap-4">
                         <label class="flex items-center gap-2 text-sm">
                             <input type="radio" x-model="approveForm.mode" value="auto">
-                            <span>🤖 Otomatis (Load Balanced)</span>
+                            <span>🤖 Otomatis</span>
                         </label>
                         <label class="flex items-center gap-2 text-sm">
                             <input type="radio" x-model="approveForm.mode" value="manual">
@@ -98,7 +102,6 @@
                         </label>
                     </div>
                 </div>
-
                 <template x-if="approveForm.mode === 'manual'">
                     <div>
                         <label class="block text-sm font-medium mb-1">Pilih API Manager</label>
@@ -111,21 +114,15 @@
                         </select>
                     </div>
                 </template>
-
-                <div class="border-t pt-3">
-                    <p class="text-xs text-gray-500 mb-2">Opsional: Isi WABA ID & Phone Number ID jika sudah dibuat di Meta</p>
-                    <input type="text" x-model="approveForm.waba_id" placeholder="WABA ID (opsional)"
-                        class="w-full px-4 py-2 border rounded-lg font-mono text-xs mb-2">
-                    <input type="text" x-model="approveForm.phone_number_id" placeholder="Phone Number ID (opsional)"
-                        class="w-full px-4 py-2 border rounded-lg font-mono text-xs">
-                </div>
+                <p class="text-xs text-gray-500 bg-blue-50 p-3 rounded">
+                    ℹ️ Setelah approve, Anda perlu melakukan <strong>Registrasi WABA</strong> (4 langkah) untuk mengaktifkan nomor di Meta.
+                </p>
             </div>
-
             <div class="flex justify-end gap-2 mt-4">
                 <button @click="showApprove = false" class="px-4 py-2 rounded-lg border">Batal</button>
                 <button @click="approve" :disabled="saving" class="px-4 py-2 rounded-lg bg-green-600 text-white disabled:opacity-50">
                     <span x-show="!saving">Approve</span>
-                    <span x-show="saving">Memproses...</span>
+                    <span x-show="saving">...</span>
                 </button>
             </div>
         </div>
@@ -135,11 +132,128 @@
     <div x-show="showReject" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
         <div class="bg-white p-6 rounded-xl w-full max-w-md">
             <h3 class="text-xl font-bold mb-4">Tolak Permintaan</h3>
-            <textarea x-model="rejectReason" rows="3" placeholder="Alasan penolakan..." class="w-full px-4 py-2 border rounded-lg"></textarea>
+            <textarea x-model="rejectReason" rows="3" placeholder="Alasan..." class="w-full px-4 py-2 border rounded-lg"></textarea>
             <div class="flex justify-end gap-2 mt-4">
                 <button @click="showReject = false" class="px-4 py-2 rounded-lg border">Batal</button>
                 <button @click="reject" class="px-4 py-2 rounded-lg bg-red-600 text-white">Tolak</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Modal Wizard Registrasi -->
+    <div x-show="showWizard" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div class="bg-white p-6 rounded-xl w-full max-w-2xl my-8">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold">🔧 Registrasi WABA ke Meta</h3>
+                <button @click="showWizard = false" class="text-gray-500 hover:text-gray-700">✕</button>
+            </div>
+
+            <!-- Progress -->
+            <div class="flex items-center mb-6 text-xs">
+                <template x-for="(s, i) in [1,2,3,4]" :key="i">
+                    <div class="flex items-center flex-1">
+                        <div :class="wizardStep >= s ? 'bg-blue-600 text-white' : 'bg-gray-300 text-gray-500'"
+                            class="w-7 h-7 rounded-full flex items-center justify-center font-bold" x-text="s"></div>
+                        <div :class="wizardStep > s ? 'bg-blue-600' : 'bg-gray-300'" class="flex-1 h-1 mx-1"></div>
+                    </div>
+                </template>
+            </div>
+
+            <template x-if="wizardError">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="wizardError"></div>
+            </template>
+            <template x-if="wizardSuccess">
+                <div class="bg-green-100 text-green-700 px-4 py-2 rounded mb-4 text-sm" x-text="wizardSuccess"></div>
+            </template>
+
+            <!-- Info WABA -->
+            <div class="bg-gray-50 p-3 rounded mb-4 text-xs space-y-1">
+                <div><strong>Nomor:</strong> <span x-text="selectedRequest?.phone_number"></span></div>
+                <div><strong>Display Name:</strong> <span x-text="selectedRequest?.display_name || '-'"></span></div>
+                <template x-if="selectedRequest?.meta_phone_number_id">
+                    <div><strong>Phone Number ID:</strong> <code class="bg-white px-1 rounded" x-text="selectedRequest.meta_phone_number_id"></code></div>
+                </template>
+            </div>
+
+            <!-- Step 1 -->
+            <template x-if="wizardStep === 1">
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-600">Masukkan <strong>WABA ID</strong> dari Meta (bisa dilihat di Meta Business Suite → WhatsApp Accounts).</p>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Meta WABA ID *</label>
+                        <input type="text" x-model="wizardForm.meta_waba_id" placeholder="1234567890"
+                            class="w-full px-4 py-2 border rounded-lg font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Verified Name (opsional)</label>
+                        <input type="text" x-model="wizardForm.verified_name" placeholder="Nama bisnis" class="w-full px-4 py-2 border rounded-lg">
+                    </div>
+                    <button @click="step1" :disabled="saving" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50">
+                        <span x-show="!saving">Daftarkan Nomor ke WABA</span>
+                        <span x-show="saving">Memproses...</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Step 2 -->
+            <template x-if="wizardStep === 2">
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-600">Kirim OTP ke nomor klien untuk verifikasi kepemilikan.</p>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Metode Pengiriman</label>
+                        <select x-model="wizardForm.code_method" class="w-full px-4 py-2 border rounded-lg">
+                            <option value="SMS">📱 SMS</option>
+                            <option value="VOICE">📞 Voice Call</option>
+                        </select>
+                    </div>
+                    <button @click="step2" :disabled="saving" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50">
+                        <span x-show="!saving">Kirim OTP</span>
+                        <span x-show="saving">Mengirim...</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Step 3 -->
+            <template x-if="wizardStep === 3">
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-600">Minta klien memberikan kode OTP yang diterima via SMS/voice.</p>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">Kode OTP *</label>
+                        <input type="text" x-model="wizardForm.otp_code" placeholder="123456" maxlength="6"
+                            class="w-full px-4 py-2 border rounded-lg font-mono text-center text-2xl tracking-widest">
+                    </div>
+                    <button @click="step3" :disabled="saving" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50">
+                        <span x-show="!saving">Verifikasi</span>
+                        <span x-show="saving">Memverifikasi...</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Step 4 -->
+            <template x-if="wizardStep === 4">
+                <div class="space-y-3">
+                    <p class="text-sm text-gray-600">Set <strong>PIN 6 digit</strong> untuk two-step verification. Simpan PIN ini — jangan sampai lupa.</p>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">PIN 6 Digit *</label>
+                        <input type="text" x-model="wizardForm.pin" placeholder="123456" maxlength="6"
+                            class="w-full px-4 py-2 border rounded-lg font-mono text-center text-2xl tracking-widest">
+                    </div>
+                    <button @click="step4" :disabled="saving" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg font-semibold disabled:opacity-50">
+                        <span x-show="!saving">🚀 Registrasi Sekarang</span>
+                        <span x-show="saving">Memproses...</span>
+                    </button>
+                </div>
+            </template>
+
+            <!-- Step 5: Sukses -->
+            <template x-if="wizardStep === 5">
+                <div class="text-center py-4">
+                    <div class="text-5xl mb-3">🎉</div>
+                    <h4 class="text-lg font-bold text-green-700 mb-2">Registrasi Berhasil!</h4>
+                    <p class="text-sm text-gray-600 mb-4">WABA sekarang aktif dan siap digunakan.</p>
+                    <button @click="showWizard = false; load()" class="px-6 py-2 bg-blue-600 text-white rounded-lg">Tutup</button>
+                </div>
+            </template>
         </div>
     </div>
 </div>
@@ -150,10 +264,15 @@
 function wabaRequestsAdmin() {
     return {
         items: [], apiManagersStatus: [], clients: [],
-        showApprove: false, showReject: false, saving: false, error: '',
-        approveForm: { mode: 'auto', api_manager_id: '', waba_id: '', phone_number_id: '' },
+        showApprove: false, showReject: false, showWizard: false,
+        saving: false, error: '',
+        approveForm: { mode: 'auto', api_manager_id: '' },
         selectedRequest: null,
         rejectReason: '',
+        wizardStep: 1,
+        wizardForm: { meta_waba_id: '', verified_name: '', code_method: 'SMS', otp_code: '', pin: '' },
+        wizardError: '', wizardSuccess: '',
+
         async load() {
             const [reqRes, amRes, clRes] = await Promise.all([
                 apiFetch('/waba-requests/admin/all'),
@@ -170,7 +289,7 @@ function wabaRequestsAdmin() {
         },
         openApprove(item) {
             this.selectedRequest = item;
-            this.approveForm = { mode: 'auto', api_manager_id: '', waba_id: '', phone_number_id: '' };
+            this.approveForm = { mode: 'auto', api_manager_id: '' };
             this.error = '';
             this.showApprove = true;
         },
@@ -179,14 +298,20 @@ function wabaRequestsAdmin() {
             this.rejectReason = '';
             this.showReject = true;
         },
+        openWizard(item) {
+            this.selectedRequest = item;
+            this.wizardStep = 1;
+            this.wizardForm = { meta_waba_id: item.meta_waba_id || '', verified_name: '', code_method: 'SMS', otp_code: '', pin: '' };
+            this.wizardError = '';
+            this.wizardSuccess = '';
+            this.showWizard = true;
+        },
         async approve() {
             this.saving = true; this.error = '';
             try {
                 const payload = {
                     auto: this.approveForm.mode === 'auto',
                     api_manager_id: this.approveForm.mode === 'manual' ? parseInt(this.approveForm.api_manager_id) : null,
-                    waba_id: this.approveForm.waba_id || null,
-                    phone_number_id: this.approveForm.phone_number_id || null,
                 };
                 const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/approve`, {
                     method: 'POST', body: JSON.stringify(payload)
@@ -201,16 +326,69 @@ function wabaRequestsAdmin() {
             const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/reject`, {
                 method: 'POST', body: JSON.stringify({ reason: this.rejectReason })
             });
-            if (res.ok) {
-                this.showReject = false;
+            if (res.ok) { this.showReject = false; await this.load(); }
+        },
+        async step1() {
+            this.saving = true; this.wizardError = '';
+            try {
+                const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/register/step1`, {
+                    method: 'POST',
+                    body: JSON.stringify({ meta_waba_id: this.wizardForm.meta_waba_id, verified_name: this.wizardForm.verified_name || null })
+                });
+                const data = await res.json();
+                if (!res.ok) { this.wizardError = data.detail; return; }
+                this.wizardStep = 2;
                 await this.load();
-            }
+            } finally { this.saving = false; }
+        },
+        async step2() {
+            this.saving = true; this.wizardError = '';
+            try {
+                const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/register/step2`, {
+                    method: 'POST',
+                    body: JSON.stringify({ code_method: this.wizardForm.code_method, language: 'id' })
+                });
+                const data = await res.json();
+                if (!res.ok) { this.wizardError = data.detail; return; }
+                this.wizardSuccess = data.message;
+                this.wizardStep = 3;
+            } finally { this.saving = false; }
+        },
+        async step3() {
+            this.saving = true; this.wizardError = ''; this.wizardSuccess = '';
+            try {
+                const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/register/step3`, {
+                    method: 'POST',
+                    body: JSON.stringify({ code: this.wizardForm.otp_code })
+                });
+                const data = await res.json();
+                if (!res.ok) { this.wizardError = data.detail; return; }
+                this.wizardSuccess = data.message;
+                this.wizardStep = 4;
+            } finally { this.saving = false; }
+        },
+        async step4() {
+            this.saving = true; this.wizardError = ''; this.wizardSuccess = '';
+            try {
+                const res = await apiFetch(`/waba-requests/admin/${this.selectedRequest.id}/register/step4`, {
+                    method: 'POST',
+                    body: JSON.stringify({ pin: this.wizardForm.pin })
+                });
+                const data = await res.json();
+                if (!res.ok) { this.wizardError = data.detail; return; }
+                this.wizardSuccess = data.message;
+                this.wizardStep = 5;
+                await this.load();
+            } finally { this.saving = false; }
         },
         statusClass(s) {
             const m = {
                 pending: 'bg-yellow-100 text-yellow-700',
-                approved: 'bg-green-100 text-green-700',
+                approved: 'bg-blue-100 text-blue-700',
+                registering: 'bg-purple-100 text-purple-700',
+                registered: 'bg-green-100 text-green-700',
                 rejected: 'bg-red-100 text-red-700',
+                failed: 'bg-red-100 text-red-700',
                 cancelled: 'bg-gray-100 text-gray-700',
             };
             return m[s] || m.pending;

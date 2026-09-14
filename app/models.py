@@ -36,6 +36,9 @@ class WabaRequestStatus(str, enum.Enum):
     approved = "approved"
     rejected = "rejected"
     cancelled = "cancelled"
+    registering = "registering"  # sedang proses registrasi
+    registered = "registered"     # registrasi selesai
+    failed = "failed"             # registrasi gagal
 
 
 # =====================
@@ -85,7 +88,7 @@ class ApiManager(Base):
     app_secret_encrypted = Column(Text, nullable=False)
     access_token_encrypted = Column(Text, nullable=False)
     business_manager_id = Column(String, nullable=True)
-    max_waba_slots = Column(Integer, default=5)  # BARU
+    max_waba_slots = Column(Integer, default=5)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
@@ -99,9 +102,9 @@ class ApiManager(Base):
 class Waba(Base):
     __tablename__ = "wabas"
     id = Column(Integer, primary_key=True)
-    api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)  # nullable: bisa pending dulu
+    api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
-    waba_id = Column(String, unique=True, nullable=True)  # nullable untuk pending
+    waba_id = Column(String, unique=True, nullable=True)
     phone_number_id = Column(String, nullable=True)
     display_phone_number = Column(String, nullable=True)
     display_name = Column(String, nullable=True)
@@ -120,12 +123,21 @@ class WabaRequest(Base):
     __tablename__ = "waba_requests"
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
-    phone_number = Column(String, nullable=False)
+    phone_number = Column(String, nullable=False)      # display: 628xxx (tanpa +)
     display_name = Column(String, nullable=True)
     notes = Column(Text, nullable=True)
     status = Column(Enum(WabaRequestStatus), default=WabaRequestStatus.pending)
     api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)
-    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=True)
+    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=True)  # FK ke tabel wabas (panel)
+
+    # === Registrasi Meta (BARU) ===
+    meta_waba_id = Column(String, nullable=True)          # WABA ID dari Meta
+    meta_phone_number_id = Column(String, nullable=True)  # Phone Number ID dari Meta
+    otp_sent_at = Column(DateTime(timezone=True), nullable=True)
+    registered_at = Column(DateTime(timezone=True), nullable=True)
+    pin_set = Column(Boolean, default=False)
+    registration_error = Column(Text, nullable=True)
+
     rejection_reason = Column(Text, nullable=True)
     otp_verified = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())

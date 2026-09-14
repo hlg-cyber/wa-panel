@@ -35,6 +35,9 @@ class WabaRequestStatusEnum(str, Enum):
     approved = "approved"
     rejected = "rejected"
     cancelled = "cancelled"
+    registering = "registering"
+    registered = "registered"
+    failed = "failed"
 
 
 # AUTH
@@ -51,7 +54,6 @@ class TokenResponse(BaseModel):
     client_id: Optional[int] = None
 
 
-# SELF REGISTER
 class ClientSelfRegister(BaseModel):
     name: str
     admin_email: str
@@ -148,12 +150,32 @@ class WabaRequestCreate(BaseModel):
 class WabaRequestMapping(BaseModel):
     api_manager_id: Optional[int] = None
     auto: bool = False
-    waba_id: Optional[str] = None
-    phone_number_id: Optional[str] = None
 
 
 class WabaRequestReject(BaseModel):
     reason: Optional[str] = None
+
+
+class WabaRegisterStep1(BaseModel):
+    """Step 1: Daftarkan nomor ke WABA Meta"""
+    meta_waba_id: str
+    verified_name: Optional[str] = None
+
+
+class WabaRegisterStep2(BaseModel):
+    """Step 2: Kirim OTP"""
+    code_method: str = "SMS"  # SMS / VOICE
+    language: str = "id"
+
+
+class WabaRegisterStep3(BaseModel):
+    """Step 3: Verifikasi OTP"""
+    code: str
+
+
+class WabaRegisterStep4(BaseModel):
+    """Step 4: Set PIN & register"""
+    pin: str  # 6 digit
 
 
 class WabaRequestOut(BaseModel):
@@ -167,6 +189,12 @@ class WabaRequestOut(BaseModel):
     waba_id: Optional[int]
     rejection_reason: Optional[str]
     otp_verified: bool
+    meta_waba_id: Optional[str]
+    meta_phone_number_id: Optional[str]
+    otp_sent_at: Optional[datetime]
+    registered_at: Optional[datetime]
+    pin_set: bool
+    registration_error: Optional[str]
     created_at: datetime
     reviewed_at: Optional[datetime]
 
