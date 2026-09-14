@@ -9,9 +9,12 @@
         </div>
         <nav class="p-4 space-y-1 text-sm">
             <a href="/ui/client-dashboard" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-dashboard">📊 Dashboard</a>
-            <a href="/ui/client-chat" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-chat">💬 Chat</a>
+            <a href="/ui/client-chat" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700 relative" data-path="/ui/client-chat">
+                💬 Chat Admin
+                <span id="clientChatBadge" class="hidden absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full"></span>
+            </a>
             <a href="/ui/client-wabas" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-wabas">📱 WABA Saya</a>
-            <a href="/ui/client-waba-request" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-waba-request">➕ Ajukan WABA</a>
+            <a href="/ui/client-chat-wa" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-chat-wa">💌 Chat WhatsApp</a>
             <a href="/ui/client-send-message" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-send-message">📤 Kirim Pesan</a>
             <a href="/ui/client-broadcast" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-broadcast">📢 Broadcast</a>
             <a href="/ui/client-contacts" class="sidebar-link block px-4 py-2 rounded hover:bg-blue-700" data-path="/ui/client-contacts">📇 Kontak</a>
@@ -32,10 +35,28 @@
     document.getElementById('userEmail').textContent = localStorage.getItem('email') || '';
     const currentPath = window.location.pathname;
     document.querySelectorAll('.sidebar-link').forEach(link => {
-        if (link.dataset.path === currentPath) {
+        if (currentPath.startsWith(link.dataset.path)) {
             link.classList.add('bg-blue-600');
             link.classList.remove('hover:bg-blue-700');
         }
     });
+
+    async function updateClientBadge() {
+        try {
+            const res = await apiFetch('/chat/my-unread-count');
+            if (res) {
+                const data = await res.json();
+                const badge = document.getElementById('clientChatBadge');
+                if (data.unread > 0) {
+                    badge.textContent = data.unread;
+                    badge.classList.remove('hidden');
+                } else {
+                    badge.classList.add('hidden');
+                }
+            }
+        } catch(e) {}
+    }
+    updateClientBadge();
+    setInterval(updateClientBadge, 15000);
 </script>
 {% endblock %}

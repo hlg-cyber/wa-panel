@@ -31,14 +31,17 @@ class TemplateStatus(str, enum.Enum):
     rejected = "rejected"
 
 
-class WabaRequestStatus(str, enum.Enum):
-    pending = "pending"
-    approved = "approved"
-    rejected = "rejected"
-    cancelled = "cancelled"
-    registering = "registering"  # sedang proses registrasi
-    registered = "registered"     # registrasi selesai
-    failed = "failed"             # registrasi gagal
+class ChatSessionStatus(str, enum.Enum):
+    waiting_admin = "waiting_admin"      # klien baru buat chat, tunggu admin
+    in_progress = "in_progress"          # admin sudah balas
+    waiting_otp = "waiting_otp"          # admin sudah minta OTP
+    completed = "completed"              # WABA aktif, selesai
+    rejected = "rejected"                # admin tolak
+    closed = "closed"                    # ditutup karena timeout / klien selesai
+
+
+class ChatTopic(str, enum.Enum):
+    add_waba = "add_waba"
 
 
 # =====================
@@ -73,7 +76,7 @@ class Client(Base):
     contacts = relationship("Contact", back_populates="client")
     broadcasts = relationship("Broadcast", back_populates="client")
     templates = relationship("MessageTemplate", back_populates="client")
-    waba_requests = relationship("WabaRequest", back_populates="client")
+    chat_sessions = relationship("ChatSession", back_populates="client")
 
 
 # =====================
@@ -117,33 +120,51 @@ class Waba(Base):
 
 
 # =====================
-# WABA REQUESTS
+# CHAT SESSIONS
 # =====================
-class WabaRequest(Base):
-    __tablename__ = "waba_requests"
+class ChatSession(Base):
+    __tablename__ = "chat_sessions"
     id = Column(Integer, primary_key=True)
     client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
-    phone_number = Column(String, nullable=False)      # display: 628xxx (tanpa +)
-    display_name = Column(String, nullable=True)
-    notes = Column(Text, nullable=True)
-    status = Column(Enum(WabaRequestStatus), default=WabaRequestStatus.pending)
+    topic = Column(Enum(ChatTopic), default=ChatTopic.add_waba)
+    phone_number = Column(String, nullable=False)      # nomor yang diajukan
+    display_name = Column(String, nullable=True)       # display name WABA
+    status = Column(Enum(ChatSessionStatus), default=ChatSessionStatus.waiting_admin)
+
+    # OTP flow
+    otp_code = Column(String, nullable=True)
+    otp_requested_at = Column(DateTime(timezone=True), nullable=True)
+
+    # Hasil akhir
+    meta_waba_id = Column(String, nullable=True)
+    meta_phone_number_id = Column(String, nullable=True)
+    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=True)
     api_manager_id = Column(Integer, ForeignKey("api_managers.id"), nullable=True)
-    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=True)  # FK ke tabel wabas (panel)
-
-    # === Registrasi Meta (BARU) ===
-    meta_waba_id = Column(String, nullable=True)          # WABA ID dari Meta
-    meta_phone_number_id = Column(String, nullable=True)  # Phone Number ID dari Meta
-    otp_sent_at = Column(DateTime(timezone=True), nullable=True)
-    registered_at = Column(DateTime(timezone=True), nullable=True)
-    pin_set = Column(Boolean, default=False)
-    registration_error = Column(Text, nullable=True)
-
     rejection_reason = Column(Text, nullable=True)
-    otp_verified = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    reviewed_at = Column(DateTime(timezone=True), nullable=True)
 
-    client = relationship("Client", back_populates="waba_requests")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+
+    client = relationship("Client", back_populates="chat_sessions")
+    messages = relationship("ChatMessage", back_populates="session", cascade="all, delete-orphan")
+
+
+# =====================
+# CHAT MESSAGES
+# =====================
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("chat_sessions.id"), nullable=False)
+    sender_role = Column(String, nullable=False)   # client / admin / system
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    message_type = Column(String, default="text")  # text / action / system
+    action_type = Column(String, nullable=True)    # request_otp, otp_provided, waba_linked, rejected
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    read_at = Column(DateTime(timezone=True), nullable=True)
+
+    session = relationship("ChatSession", back_populates="messages")
 
 
 # =====================

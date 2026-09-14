@@ -8,7 +8,7 @@ from app.config import settings
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WA Panel API", version="2.0.0")
+app = FastAPI(title="WA Panel API", version="2.1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,7 +47,7 @@ def root():
 from app.routers import (
     auth, dashboard, ui, api_managers, wabas, clients,
     webhook, messages, contacts, templates, broadcasts,
-    client_portal, waba_requests,
+    client_portal, chat,
 )
 
 app.include_router(auth.router)
@@ -62,4 +62,4 @@ app.include_router(contacts.router)
 app.include_router(templates.router)
 app.include_router(broadcasts.router)
 app.include_router(client_portal.router)
-app.include_router(waba_requests.router)
+app.include_router(chat.router)

@@ -37,9 +37,14 @@ def clients_page(request: Request):
     return templates.TemplateResponse("clients.html", {"request": request})
 
 
-@router.get("/ui/waba-requests", response_class=HTMLResponse)
-def waba_requests_page(request: Request):
-    return templates.TemplateResponse("waba_requests.html", {"request": request})
+@router.get("/ui/admin-chat", response_class=HTMLResponse)
+def admin_chat_page(request: Request):
+    return templates.TemplateResponse("admin_chat.html", {"request": request})
+
+
+@router.get("/ui/admin-chat/{session_id}", response_class=HTMLResponse)
+def admin_chat_detail_page(request: Request, session_id: int):
+    return templates.TemplateResponse("admin_chat.html", {"request": request, "session_id": session_id})
 
 
 # CLIENT PORTAL
@@ -48,13 +53,18 @@ def client_dashboard_page(request: Request):
     return templates.TemplateResponse("dashboard_client.html", {"request": request})
 
 
-@router.get("/ui/client-waba-request", response_class=HTMLResponse)
-def client_waba_request_page(request: Request):
-    return templates.TemplateResponse("client_waba_request.html", {"request": request})
-
-
 @router.get("/ui/client-chat", response_class=HTMLResponse)
 def client_chat_page(request: Request):
+    return templates.TemplateResponse("client_chat_cs.html", {"request": request})
+
+
+@router.get("/ui/client-chat/{session_id}", response_class=HTMLResponse)
+def client_chat_detail_page(request: Request, session_id: int):
+    return templates.TemplateResponse("client_chat_cs.html", {"request": request, "session_id": session_id})
+
+
+@router.get("/ui/client-chat-wa", response_class=HTMLResponse)
+def client_chat_wa_page(request: Request):
     return templates.TemplateResponse("client_chat.html", {"request": request})
 
 

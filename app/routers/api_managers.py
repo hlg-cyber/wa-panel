@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 from app.database import get_db
 from app import models
 from app.schemas import ApiManagerCreate, ApiManagerUpdate, ApiManagerOut
 from app.deps import require_super_admin
 from app.security import encrypt_token
-from app.services import waba_mapper
 
 router = APIRouter(prefix="/api-managers", tags=["API Manager"])
 
@@ -25,7 +25,32 @@ def list_api_managers_with_status(
     _: models.User = Depends(require_super_admin),
 ):
     """List API Manager + slot info (untuk auto-mapping UI)."""
-    return waba_mapper.get_all_api_managers_status(db)
+    waba_counts = db.query(
+        models.Waba.api_manager_id,
+        func.count(models.Waba.id).label("total")
+    ).filter(
+        models.Waba.api_manager_id.isnot(None)
+    ).group_by(models.Waba.api_manager_id).subquery()
+
+    results = db.query(
+        models.ApiManager,
+        func.coalesce(waba_counts.c.total, 0).label("waba_count")
+    ).outerjoin(
+        waba_counts, models.ApiManager.id == waba_counts.c.api_manager_id
+    ).order_by(models.ApiManager.id.asc()).all()
+
+    return [
+        {
+            "id": am.id,
+            "name": am.name,
+            "max_waba_slots": am.max_waba_slots,
+            "used_slots": count,
+            "available_slots": max(0, am.max_waba_slots - count),
+            "is_active": am.is_active,
+            "is_full": count >= am.max_waba_slots,
+        }
+        for am, count in results
+    ]
 
 
 @router.get("/{api_manager_id}", response_model=ApiManagerOut)

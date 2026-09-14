@@ -30,14 +30,17 @@ class TemplateStatusEnum(str, Enum):
     rejected = "rejected"
 
 
-class WabaRequestStatusEnum(str, Enum):
-    pending = "pending"
-    approved = "approved"
+class ChatSessionStatusEnum(str, Enum):
+    waiting_admin = "waiting_admin"
+    in_progress = "in_progress"
+    waiting_otp = "waiting_otp"
+    completed = "completed"
     rejected = "rejected"
-    cancelled = "cancelled"
-    registering = "registering"
-    registered = "registered"
-    failed = "failed"
+    closed = "closed"
+
+
+class ChatTopicEnum(str, Enum):
+    add_waba = "add_waba"
 
 
 # AUTH
@@ -140,66 +143,68 @@ class WabaOut(BaseModel):
         from_attributes = True
 
 
-# WABA REQUEST
-class WabaRequestCreate(BaseModel):
+# CHAT
+class ChatSessionCreate(BaseModel):
+    topic: ChatTopicEnum = ChatTopicEnum.add_waba
     phone_number: str
     display_name: Optional[str] = None
-    notes: Optional[str] = None
 
 
-class WabaRequestMapping(BaseModel):
-    api_manager_id: Optional[int] = None
-    auto: bool = False
+class ChatMessageCreate(BaseModel):
+    content: str
 
 
-class WabaRequestReject(BaseModel):
-    reason: Optional[str] = None
-
-
-class WabaRegisterStep1(BaseModel):
-    """Step 1: Daftarkan nomor ke WABA Meta"""
-    meta_waba_id: str
-    verified_name: Optional[str] = None
-
-
-class WabaRegisterStep2(BaseModel):
-    """Step 2: Kirim OTP"""
-    code_method: str = "SMS"  # SMS / VOICE
-    language: str = "id"
-
-
-class WabaRegisterStep3(BaseModel):
-    """Step 3: Verifikasi OTP"""
-    code: str
-
-
-class WabaRegisterStep4(BaseModel):
-    """Step 4: Set PIN & register"""
-    pin: str  # 6 digit
-
-
-class WabaRequestOut(BaseModel):
+class ChatMessageOut(BaseModel):
     id: int
-    client_id: int
-    phone_number: str
-    display_name: Optional[str]
-    notes: Optional[str]
-    status: WabaRequestStatusEnum
-    api_manager_id: Optional[int]
-    waba_id: Optional[int]
-    rejection_reason: Optional[str]
-    otp_verified: bool
-    meta_waba_id: Optional[str]
-    meta_phone_number_id: Optional[str]
-    otp_sent_at: Optional[datetime]
-    registered_at: Optional[datetime]
-    pin_set: bool
-    registration_error: Optional[str]
+    session_id: int
+    sender_role: str
+    sender_id: Optional[int]
+    message_type: str
+    action_type: Optional[str]
+    content: str
     created_at: datetime
-    reviewed_at: Optional[datetime]
+    read_at: Optional[datetime]
 
     class Config:
         from_attributes = True
+
+
+class ChatSessionOut(BaseModel):
+    id: int
+    client_id: int
+    topic: ChatTopicEnum
+    phone_number: str
+    display_name: Optional[str]
+    status: ChatSessionStatusEnum
+    otp_code: Optional[str]
+    otp_requested_at: Optional[datetime]
+    meta_waba_id: Optional[str]
+    meta_phone_number_id: Optional[str]
+    waba_id: Optional[int]
+    api_manager_id: Optional[int]
+    rejection_reason: Optional[str]
+    created_at: datetime
+    completed_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class ChatSessionDetail(ChatSessionOut):
+    messages: List[ChatMessageOut] = []
+    client_name: Optional[str] = None
+    client_email: Optional[str] = None
+
+
+class ActionRequest(BaseModel):
+    pass
+
+
+class CompleteWabaRequest(BaseModel):
+    meta_waba_id: str
+    meta_phone_number_id: str
+    api_manager_id: int
+    otp_code: Optional[str] = None
 
 
 # CLIENT
@@ -234,7 +239,7 @@ class DashboardStats(BaseModel):
     wabas_green: int
     wabas_yellow: int
     wabas_red: int
-    pending_waba_requests: int
+    pending_chats: int
 
 
 class ClientDashboardStats(BaseModel):
@@ -249,7 +254,7 @@ class ClientDashboardStats(BaseModel):
     total_messages_delivered: int
     total_messages_read: int
     total_messages_failed: int
-    pending_waba_requests: int
+    active_chats: int
 
 
 # CONTACT

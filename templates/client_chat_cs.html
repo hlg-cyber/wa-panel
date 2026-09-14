@@ -1,0 +1,300 @@
+{% extends "layout_client.html" %}
+{% block title %}Chat Admin{% endblock %}
+{% block content %}
+<div x-data="clientChatCS()" x-init="init()" class="h-[calc(100vh-4rem)] flex bg-white rounded-xl shadow overflow-hidden">
+    <!-- Sidebar: Daftar Sesi -->
+    <div class="w-80 border-r flex flex-col bg-gray-50">
+        <div class="p-4 border-b bg-white">
+            <h2 class="font-bold text-gray-800 mb-3">💬 Chat Admin</h2>
+            <button @click="showNewSession = true" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-semibold">
+                + Chat Baru
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto">
+            <template x-if="sessions.length === 0">
+                <div class="p-4 text-center text-gray-400 text-sm">
+                    Belum ada chat. Klik "Chat Baru" untuk mulai.
+                </div>
+            </template>
+            <template x-for="s in sessions" :key="s.id">
+                <div @click="openSession(s.id)"
+                    :class="selectedId === s.id ? 'bg-blue-100 border-l-4 border-blue-600' : 'hover:bg-gray-100'"
+                    class="p-3 border-b cursor-pointer">
+                    <div class="flex justify-between items-start">
+                        <div class="font-semibold text-sm text-gray-800" x-text="s.phone_number"></div>
+                        <div class="text-xs text-gray-400" x-text="formatTimeShort(s.created_at)"></div>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        <span x-text="topicLabel(s.topic)"></span>
+                    </div>
+                    <div class="mt-1">
+                        <span :class="statusClass(s.status)" class="text-xs px-2 py-0.5 rounded" x-text="statusLabel(s.status)"></span>
+                    </div>
+                </div>
+            </template>
+        </div>
+    </div>
+
+    <!-- Area Chat -->
+    <div class="flex-1 flex flex-col bg-[#f0f2f5]">
+        <template x-if="!selectedId">
+            <div class="flex-1 flex items-center justify-center text-gray-500">
+                <div class="text-center">
+                    <div class="text-5xl mb-2">💬</div>
+                    <div>Pilih chat atau buat baru</div>
+                </div>
+            </div>
+        </template>
+
+        <template x-if="selectedId">
+            <div class="flex flex-col h-full">
+                <!-- Header -->
+                <div class="bg-white border-b p-4 flex justify-between items-center">
+                    <div>
+                        <div class="font-bold text-gray-800" x-text="currentSession?.phone_number"></div>
+                        <div class="text-xs text-gray-500">
+                            <span x-text="topicLabel(currentSession?.topic)"></span>
+                            <span class="mx-2">•</span>
+                            <span :class="statusTextClass(currentSession?.status)" x-text="statusLabel(currentSession?.status)"></span>
+                        </div>
+                    </div>
+                    <button @click="refresh" class="text-xs px-3 py-1 bg-gray-100 rounded hover:bg-gray-200">🔄</button>
+                </div>
+
+                <!-- Messages -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-2" x-ref="messagesContainer">
+                    <template x-for="m in messages" :key="m.id">
+                        <div>
+                            <!-- System message -->
+                            <template x-if="m.sender_role === 'system'">
+                                <div class="text-center my-2">
+                                    <span class="inline-block bg-yellow-100 text-yellow-800 text-xs px-3 py-1 rounded-full whitespace-pre-wrap max-w-lg" x-text="m.content"></span>
+                                </div>
+                            </template>
+                            <!-- Client message (kanan) -->
+                            <template x-if="m.sender_role === 'client'">
+                                <div class="flex justify-end">
+                                    <div class="max-w-md px-3 py-2 rounded-lg shadow bg-blue-500 text-white">
+                                        <div class="text-sm whitespace-pre-wrap" x-text="m.content"></div>
+                                        <div class="text-[10px] text-blue-100 text-right mt-1" x-text="formatTime(m.created_at)"></div>
+                                    </div>
+                                </div>
+                            </template>
+                            <!-- Admin message (kiri) -->
+                            <template x-if="m.sender_role === 'admin'">
+                                <div class="flex justify-start">
+                                    <div class="max-w-md px-3 py-2 rounded-lg shadow bg-white">
+                                        <div class="text-xs text-blue-600 font-semibold mb-1">Admin</div>
+                                        <div class="text-sm whitespace-pre-wrap text-gray-800" x-text="m.content"></div>
+                                        <div class="text-[10px] text-gray-500 text-right mt-1" x-text="formatTime(m.created_at)"></div>
+                                    </div>
+                                </div>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Input -->
+                <template x-if="!['completed', 'rejected', 'closed'].includes(currentSession?.status)">
+                    <div class="bg-white border-t p-3">
+                        <template x-if="sendError">
+                            <div class="text-xs text-red-600 mb-2" x-text="sendError"></div>
+                        </template>
+                        <div class="flex gap-2">
+                            <textarea x-model="newMessage" @keydown.enter.prevent="send"
+                                placeholder="Ketik pesan... (Enter untuk kirim)" rows="2"
+                                class="flex-1 px-3 py-2 border rounded-lg resize-none focus:ring-2 focus:ring-blue-500"></textarea>
+                            <button @click="send" :disabled="sending || !newMessage.trim()"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-semibold">
+                                <span x-show="!sending">Kirim</span>
+                                <span x-show="sending">...</span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+
+                <template x-if="['completed', 'rejected', 'closed'].includes(currentSession?.status)">
+                    <div class="bg-gray-100 border-t p-3 text-center text-sm text-gray-500">
+                        Sesi ini sudah ditutup. Buat chat baru untuk memulai diskusi lain.
+                    </div>
+                </template>
+            </div>
+        </template>
+    </div>
+
+    <!-- Modal New Session -->
+    <div x-show="showNewSession" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Chat Baru dengan Admin</h3>
+            <template x-if="error">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Topik</label>
+                    <select x-model="form.topic" class="w-full px-4 py-2 border rounded-lg" disabled>
+                        <option value="add_waba">➕ Tambah WABA Baru</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nomor WhatsApp * (format 628xxx)</label>
+                    <input type="text" x-model="form.phone_number" placeholder="6281234567890"
+                        class="w-full px-4 py-2 border rounded-lg font-mono">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Display Name (opsional)</label>
+                    <input type="text" x-model="form.display_name" placeholder="Nama Bisnis"
+                        class="w-full px-4 py-2 border rounded-lg">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showNewSession = false; error = ''" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="createSession" :disabled="creating" class="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
+                    <span x-show="!creating">Mulai Chat</span>
+                    <span x-show="creating">...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function clientChatCS() {
+    return {
+        sessions: [], messages: [], currentSession: null,
+        selectedId: null, newMessage: '', sending: false, sendError: '',
+        showNewSession: false, creating: false, error: '',
+        form: { topic: 'add_waba', phone_number: '', display_name: '' },
+
+        async init() {
+            await this.loadSessions();
+            // Auto-open first active session
+            const urlParts = window.location.pathname.split('/');
+            const sid = urlParts[urlParts.length - 1];
+            if (sid && !isNaN(parseInt(sid))) {
+                this.openSession(parseInt(sid));
+            }
+        },
+
+        async loadSessions() {
+            const res = await apiFetch('/chat/my-sessions');
+            if (res) this.sessions = await res.json();
+        },
+
+        async openSession(id) {
+            this.selectedId = id;
+            await this.loadSessionDetail();
+            if (this._interval) clearInterval(this._interval);
+            this._interval = setInterval(() => {
+                if (this.selectedId === id) this.loadSessionDetail();
+            }, 5000);
+        },
+
+        async loadSessionDetail() {
+            if (!this.selectedId) return;
+            const res = await apiFetch(`/chat/sessions/${this.selectedId}`);
+            if (res) {
+                const data = await res.json();
+                const oldLen = this.messages.length;
+                this.currentSession = data;
+                this.messages = data.messages;
+                if (this.messages.length > oldLen) {
+                    this.$nextTick(() => this.scrollBottom());
+                }
+            }
+        },
+
+        async refresh() {
+            await this.loadSessionDetail();
+            await this.loadSessions();
+        },
+
+        scrollBottom() {
+            const el = this.$refs.messagesContainer;
+            if (el) el.scrollTop = el.scrollHeight;
+        },
+
+        async createSession() {
+            this.creating = true; this.error = '';
+            try {
+                const res = await apiFetch('/chat/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify(this.form)
+                });
+                const data = await res.json();
+                if (!res.ok) { this.error = data.detail; return; }
+                this.showNewSession = false;
+                this.form = { topic: 'add_waba', phone_number: '', display_name: '' };
+                await this.loadSessions();
+                this.openSession(data.id);
+            } finally { this.creating = false; }
+        },
+
+        async send() {
+            if (!this.newMessage.trim()) return;
+            this.sending = true; this.sendError = '';
+            try {
+                const res = await apiFetch(`/chat/sessions/${this.selectedId}/messages`, {
+                    method: 'POST',
+                    body: JSON.stringify({ content: this.newMessage.trim() })
+                });
+                if (!res.ok) { const d = await res.json(); this.sendError = d.detail; return; }
+                this.newMessage = '';
+                await this.loadSessionDetail();
+            } finally { this.sending = false; }
+        },
+
+        topicLabel(t) {
+            return { add_waba: '➕ Tambah WABA' }[t] || t;
+        },
+
+        statusLabel(s) {
+            return {
+                waiting_admin: '⏳ Menunggu Admin',
+                in_progress: '💬 Sedang Berlangsung',
+                waiting_otp: '📱 Menunggu OTP',
+                completed: '✅ Selesai',
+                rejected: '❌ Ditolak',
+                closed: '🔒 Ditutup',
+            }[s] || s;
+        },
+
+        statusClass(s) {
+            return {
+                waiting_admin: 'bg-yellow-100 text-yellow-700',
+                in_progress: 'bg-blue-100 text-blue-700',
+                waiting_otp: 'bg-orange-100 text-orange-700',
+                completed: 'bg-green-100 text-green-700',
+                rejected: 'bg-red-100 text-red-700',
+                closed: 'bg-gray-100 text-gray-700',
+            }[s] || 'bg-gray-100 text-gray-700';
+        },
+
+        statusTextClass(s) {
+            return {
+                completed: 'text-green-600 font-semibold',
+                rejected: 'text-red-600 font-semibold',
+                waiting_otp: 'text-orange-600 font-semibold',
+            }[s] || 'text-blue-600';
+        },
+
+        formatTime(iso) {
+            if (!iso) return '';
+            return new Date(iso).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        },
+
+        formatTimeShort(iso) {
+            if (!iso) return '';
+            const d = new Date(iso);
+            const now = new Date();
+            if (d.toDateString() === now.toDateString()) {
+                return d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+            }
+            return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short' });
+        }
+    }
+}
+</script>
+{% endblock %}
