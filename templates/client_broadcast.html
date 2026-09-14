@@ -1,0 +1,159 @@
+{% extends "layout_client.html" %}
+{% block title %}Broadcast{% endblock %}
+{% block content %}
+<div x-data="broadcastPage()" x-init="load()">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">📤 Broadcast</h2>
+        <button @click="showModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">+ Buat Broadcast</button>
+    </div>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nama</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Total</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Sent</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Delivered</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Failed</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="8" class="px-4 py-8 text-center text-gray-400">Belum ada broadcast.</td></tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3 font-medium" x-text="item.name"></td>
+                        <td class="px-4 py-3">
+                            <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.status"></span>
+                        </td>
+                        <td class="px-4 py-3" x-text="item.total_recipients"></td>
+                        <td class="px-4 py-3 text-blue-600 font-semibold" x-text="item.total_sent"></td>
+                        <td class="px-4 py-3 text-green-600 font-semibold" x-text="item.total_delivered"></td>
+                        <td class="px-4 py-3 text-red-600 font-semibold" x-text="item.total_failed"></td>
+                        <td class="px-4 py-3 text-right">
+                            <button @click="showDetail(item)" class="text-blue-600 hover:underline text-sm">Detail</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Buat -->
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
+        <div class="bg-white p-6 rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold mb-4">Buat Broadcast</h3>
+            <template x-if="error">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium mb-1">WABA *</label>
+                    <select x-model="form.waba_id" class="w-full px-4 py-2 border rounded-lg">
+                        <option value="">-- Pilih WABA --</option>
+                        <template x-for="w in wabas" :key="w.id">
+                            <option :value="w.id" x-text="w.display_phone_number || w.waba_id"></option>
+                        </template>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nama Broadcast *</label>
+                    <input type="text" x-model="form.name" class="w-full px-4 py-2 border rounded-lg">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Isi Pesan *</label>
+                    <textarea x-model="form.message_body" rows="4" class="w-full px-4 py-2 border rounded-lg"></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Nomor Manual (satu per baris)</label>
+                    <textarea x-model="manualRecipients" rows="4" placeholder="6281234567890&#10;6289876543210" class="w-full px-4 py-2 border rounded-lg font-mono text-xs"></textarea>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" x-model="form.use_contacts" id="use_contacts">
+                    <label for="use_contacts" class="text-sm">Gunakan semua kontak tersimpan</label>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="save" :disabled="saving" class="px-4 py-2 rounded-lg bg-blue-600 text-white disabled:opacity-50">
+                    <span x-show="!saving">Kirim</span>
+                    <span x-show="saving">Mengirim...</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Detail -->
+    <div x-show="showDetailModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+            <h3 class="text-xl font-bold mb-4">Detail Broadcast</h3>
+            <div class="space-y-2">
+                <template x-for="log in detailLogs" :key="log.id">
+                    <div class="border rounded p-2 text-sm flex justify-between">
+                        <span class="font-mono" x-text="log.recipient"></span>
+                        <span :class="log.status === 'failed' ? 'text-red-600' : 'text-green-600'" x-text="log.status"></span>
+                    </div>
+                </template>
+            </div>
+            <div class="flex justify-end mt-4">
+                <button @click="showDetailModal = false" class="px-4 py-2 rounded-lg border">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function broadcastPage() {
+    return {
+        items: [], wabas: [], showModal: false, showDetailModal: false, saving: false, error: '',
+        manualRecipients: '',
+        detailLogs: [],
+        form: { waba_id: '', name: '', message_body: '', use_contacts: false, message_type: 'text' },
+        async load() {
+            const wres = await apiFetch('/client-portal/wabas');
+            if (wres) this.wabas = await wres.json();
+            const res = await apiFetch('/broadcasts');
+            if (res) this.items = await res.json();
+        },
+        async save() {
+            this.saving = true; this.error = '';
+            try {
+                const recipients = this.manualRecipients.split('\n').map(s => s.trim()).filter(Boolean);
+                const payload = {
+                    waba_id: parseInt(this.form.waba_id),
+                    name: this.form.name,
+                    message_type: 'text',
+                    message_body: this.form.message_body,
+                    recipients: recipients,
+                    use_contacts: this.form.use_contacts,
+                };
+                const res = await apiFetch('/broadcasts', { method: 'POST', body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (!res.ok) { this.error = data.detail; return; }
+                this.showModal = false;
+                this.form = { waba_id: '', name: '', message_body: '', use_contacts: false, message_type: 'text' };
+                this.manualRecipients = '';
+                await this.load();
+            } finally { this.saving = false; }
+        },
+        async showDetail(item) {
+            const res = await apiFetch(`/broadcasts/${item.id}/logs`);
+            if (res) this.detailLogs = await res.json();
+            this.showDetailModal = true;
+        },
+        statusClass(s) {
+            const m = { done: 'bg-green-100 text-green-700', sending: 'bg-yellow-100 text-yellow-700', failed: 'bg-red-100 text-red-700', draft: 'bg-gray-100 text-gray-700' };
+            return m[s] || m.draft;
+        }
+    }
+}
+</script>
+{% endblock %}

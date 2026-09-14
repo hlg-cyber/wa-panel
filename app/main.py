@@ -8,7 +8,7 @@ from app.config import settings
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WA Panel API", version="0.6.0")
+app = FastAPI(title="WA Panel API", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -35,8 +35,6 @@ def seed_superadmin():
             db.add(user)
             db.commit()
             print(f"✅ Super Admin seeded: {settings.SUPERADMIN_EMAIL}")
-        else:
-            print(f"ℹ️  Super Admin already exists: {settings.SUPERADMIN_EMAIL}")
     finally:
         db.close()
 
@@ -46,7 +44,10 @@ def root():
     return {"status": "ok", "message": "WA Panel API running"}
 
 
-from app.routers import auth, dashboard, ui, api_managers, wabas, clients
+from app.routers import (
+    auth, dashboard, ui, api_managers, wabas, clients,
+    webhook, messages, contacts, templates, broadcasts, client_portal,
+)
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
@@ -54,3 +55,9 @@ app.include_router(ui.router)
 app.include_router(api_managers.router)
 app.include_router(wabas.router)
 app.include_router(clients.router)
+app.include_router(webhook.router)
+app.include_router(messages.router)
+app.include_router(contacts.router)
+app.include_router(templates.router)
+app.include_router(broadcasts.router)
+app.include_router(client_portal.router)

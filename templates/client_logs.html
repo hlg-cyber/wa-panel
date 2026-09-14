@@ -1,0 +1,78 @@
+{% extends "layout_client.html" %}
+{% block title %}Log Pesan{% endblock %}
+{% block content %}
+<div x-data="logsPage()" x-init="load()">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">📨 Log Pesan</h2>
+
+    <div class="bg-white p-4 rounded-xl shadow mb-4 flex gap-4 items-center">
+        <label class="text-sm text-gray-600">Filter Arah:</label>
+        <select x-model="filterDirection" @change="load()" class="px-3 py-2 border rounded-lg">
+            <option value="">Semua</option>
+            <option value="inbound">Masuk</option>
+            <option value="outbound">Keluar</option>
+        </select>
+    </div>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Waktu</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Arah</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nomor</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Isi</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Belum ada log.</td></tr>
+                </template>
+                <template x-for="item in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3 text-xs text-gray-500" x-text="formatDate(item.created_at)"></td>
+                        <td class="px-4 py-3">
+                            <span :class="item.direction === 'inbound' ? 'bg-blue-100 text-blue-700' : 'bg-purple-100 text-purple-700'" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.direction"></span>
+                        </td>
+                        <td class="px-4 py-3 font-mono text-xs" x-text="item.recipient"></td>
+                        <td class="px-4 py-3 text-xs max-w-md truncate" x-text="item.content"></td>
+                        <td class="px-4 py-3">
+                            <span :class="statusClass(item.status)" class="px-2 py-1 rounded text-xs" x-text="item.status"></span>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function logsPage() {
+    return {
+        items: [],
+        filterDirection: '',
+        async load() {
+            const url = this.filterDirection ? `/messages/logs?direction=${this.filterDirection}` : '/messages/logs';
+            const res = await apiFetch(url);
+            if (res) this.items = await res.json();
+        },
+        formatDate(iso) {
+            if (!iso) return '-';
+            return new Date(iso).toLocaleString('id-ID');
+        },
+        statusClass(s) {
+            const m = {
+                sent: 'bg-blue-100 text-blue-700',
+                delivered: 'bg-green-100 text-green-700',
+                read: 'bg-teal-100 text-teal-700',
+                failed: 'bg-red-100 text-red-700',
+                received: 'bg-gray-100 text-gray-700',
+            };
+            return m[s] || 'bg-gray-100 text-gray-700';
+        }
+    }
+}
+</script>
+{% endblock %}

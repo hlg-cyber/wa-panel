@@ -1,0 +1,121 @@
+{% extends "layout_client.html" %}
+{% block title %}Kontak{% endblock %}
+{% block content %}
+<div x-data="contactsPage()" x-init="load()">
+    <div class="flex justify-between items-center mb-6">
+        <h2 class="text-2xl font-bold text-gray-800">📇 Kontak</h2>
+        <div class="space-x-2">
+            <button @click="showImport = true" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">📥 Import CSV</button>
+            <button @click="showModal = true" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">+ Tambah</button>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nama</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Nomor</th>
+                    <th class="px-4 py-3 text-right text-gray-600 font-semibold">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="4" class="px-4 py-8 text-center text-gray-400">Belum ada kontak.</td></tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3" x-text="item.name || '-'"></td>
+                        <td class="px-4 py-3 font-mono" x-text="item.phone_number"></td>
+                        <td class="px-4 py-3 text-right">
+                            <button @click="del(item)" class="text-red-600 hover:underline text-sm">Hapus</button>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Modal Tambah -->
+    <div x-show="showModal" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Tambah Kontak</h3>
+            <template x-if="error">
+                <div class="bg-red-100 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
+            </template>
+            <div class="space-y-3">
+                <input type="text" x-model="form.name" placeholder="Nama (opsional)" class="w-full px-4 py-2 border rounded-lg">
+                <input type="text" x-model="form.phone_number" placeholder="6281234567890" class="w-full px-4 py-2 border rounded-lg font-mono">
+            </div>
+            <div class="flex justify-end gap-2 mt-4">
+                <button @click="showModal = false" class="px-4 py-2 rounded-lg border">Batal</button>
+                <button @click="save" class="px-4 py-2 rounded-lg bg-blue-600 text-white">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Import -->
+    <div x-show="showImport" x-cloak class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-xl w-full max-w-md">
+            <h3 class="text-xl font-bold mb-4">Import CSV</h3>
+            <p class="text-sm text-gray-500 mb-3">Format: kolom <code class="bg-gray-100 px-1">name</code> dan <code class="bg-gray-100 px-1">phone_number</code></p>
+            <template x-if="importMsg">
+                <div class="bg-blue-100 text-blue-700 px-4 py-2 rounded mb-4 text-sm" x-text="importMsg"></div>
+            </template>
+            <input type="file" accept=".csv" @change="uploadCsv($event)" class="w-full">
+            <div class="flex justify-end mt-4">
+                <button @click="showImport = false; importMsg = ''" class="px-4 py-2 rounded-lg border">Tutup</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function contactsPage() {
+    return {
+        items: [], showModal: false, showImport: false, error: '', importMsg: '',
+        form: { name: '', phone_number: '' },
+        async load() {
+            const res = await apiFetch('/contacts');
+            if (res) this.items = await res.json();
+        },
+        async save() {
+            this.error = '';
+            const res = await apiFetch('/contacts', {
+                method: 'POST',
+                body: JSON.stringify(this.form)
+            });
+            const data = await res.json();
+            if (!res.ok) { this.error = data.detail; return; }
+            this.showModal = false;
+            this.form = { name: '', phone_number: '' };
+            await this.load();
+        },
+        async del(item) {
+            if (!confirm(`Hapus kontak ${item.phone_number}?`)) return;
+            await apiFetch(`/contacts/${item.id}`, { method: 'DELETE' });
+            await this.load();
+        },
+        async uploadCsv(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+            const fd = new FormData();
+            fd.append('file', file);
+            const token = localStorage.getItem('token');
+            const res = await fetch('/contacts/import-csv', {
+                method: 'POST',
+                headers: { 'Authorization': 'Bearer ' + token },
+                body: fd
+            });
+            const data = await res.json();
+            this.importMsg = `✅ Inserted: ${data.inserted}, Skipped: ${data.skipped}`;
+            await this.load();
+        }
+    }
+}
+</script>
+{% endblock %}

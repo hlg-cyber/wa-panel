@@ -1,0 +1,57 @@
+{% extends "layout_client.html" %}
+{% block title %}WABA Saya{% endblock %}
+{% block content %}
+<div x-data="myWabas()" x-init="load()">
+    <h2 class="text-2xl font-bold text-gray-800 mb-6">📱 WABA Saya</h2>
+
+    <div class="bg-white rounded-xl shadow overflow-hidden">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">#</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Phone Number</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Display Name</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Quality</th>
+                    <th class="px-4 py-3 text-left text-gray-600 font-semibold">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-if="items.length === 0">
+                    <tr><td colspan="5" class="px-4 py-8 text-center text-gray-400">Belum ada WABA terhubung. Hubungi admin.</td></tr>
+                </template>
+                <template x-for="(item, idx) in items" :key="item.id">
+                    <tr class="border-b hover:bg-gray-50">
+                        <td class="px-4 py-3" x-text="idx + 1"></td>
+                        <td class="px-4 py-3 font-medium" x-text="item.display_phone_number || '-'"></td>
+                        <td class="px-4 py-3" x-text="item.display_name || '-'"></td>
+                        <td class="px-4 py-3">
+                            <span :class="qualityClass(item.quality_rating)" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.quality_rating"></span>
+                        </td>
+                        <td class="px-4 py-3">
+                            <span :class="item.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'" class="px-2 py-1 rounded text-xs font-semibold" x-text="item.is_active ? 'Active' : 'Inactive'"></span>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function myWabas() {
+    return {
+        items: [],
+        async load() {
+            const res = await apiFetch('/client-portal/wabas');
+            if (res) this.items = await res.json();
+        },
+        qualityClass(r) {
+            const m = { GREEN: 'bg-green-100 text-green-700', YELLOW: 'bg-yellow-100 text-yellow-700', RED: 'bg-red-100 text-red-700', UNKNOWN: 'bg-gray-100 text-gray-700' };
+            return m[r] || m.UNKNOWN;
+        }
+    }
+}
+</script>
+{% endblock %}

@@ -17,6 +17,20 @@ class QualityRating(str, enum.Enum):
     unknown = "UNKNOWN"
 
 
+class BroadcastStatus(str, enum.Enum):
+    draft = "draft"
+    sending = "sending"
+    done = "done"
+    failed = "failed"
+
+
+class TemplateStatus(str, enum.Enum):
+    draft = "draft"
+    pending = "pending"
+    approved = "approved"
+    rejected = "rejected"
+
+
 # =====================
 # USERS
 # =====================
@@ -46,6 +60,9 @@ class Client(Base):
     users = relationship("User", back_populates="client")
     api_managers = relationship("ApiManager", back_populates="client")
     wabas = relationship("Waba", back_populates="client")
+    contacts = relationship("Contact", back_populates="client")
+    broadcasts = relationship("Broadcast", back_populates="client")
+    templates = relationship("MessageTemplate", back_populates="client")
 
 
 # =====================
@@ -88,14 +105,81 @@ class Waba(Base):
 
 
 # =====================
+# CONTACTS
+# =====================
+class Contact(Base):
+    __tablename__ = "contacts"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    name = Column(String, nullable=True)
+    phone_number = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="contacts")
+
+
+# =====================
+# MESSAGE TEMPLATES
+# =====================
+class MessageTemplate(Base):
+    __tablename__ = "message_templates"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=False)
+    name = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    language = Column(String, default="id")
+    header_type = Column(String, nullable=True)
+    header_text = Column(Text, nullable=True)
+    body_text = Column(Text, nullable=False)
+    footer_text = Column(Text, nullable=True)
+    buttons_json = Column(Text, nullable=True)
+    status = Column(Enum(TemplateStatus), default=TemplateStatus.draft)
+    meta_template_id = Column(String, nullable=True)
+    rejection_reason = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="templates")
+
+
+# =====================
+# BROADCASTS
+# =====================
+class Broadcast(Base):
+    __tablename__ = "broadcasts"
+    id = Column(Integer, primary_key=True)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=False)
+    waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=False)
+    name = Column(String, nullable=False)
+    message_type = Column(String, default="text")
+    message_body = Column(Text, nullable=False)
+    template_name = Column(String, nullable=True)
+    status = Column(Enum(BroadcastStatus), default=BroadcastStatus.draft)
+    total_recipients = Column(Integer, default=0)
+    total_sent = Column(Integer, default=0)
+    total_delivered = Column(Integer, default=0)
+    total_read = Column(Integer, default=0)
+    total_failed = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    client = relationship("Client", back_populates="broadcasts")
+
+
+# =====================
 # MESSAGE LOGS
 # =====================
 class MessageLog(Base):
     __tablename__ = "message_logs"
     id = Column(Integer, primary_key=True)
     waba_id = Column(Integer, ForeignKey("wabas.id"), nullable=False)
+    client_id = Column(Integer, ForeignKey("clients.id"), nullable=True)
+    broadcast_id = Column(Integer, ForeignKey("broadcasts.id"), nullable=True)
     recipient = Column(String, nullable=False)
     direction = Column(String)
+    message_type = Column(String, default="text")
+    content = Column(Text)
     payload = Column(Text)
     status = Column(String)
+    error_message = Column(Text, nullable=True)
+    meta_message_id = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
