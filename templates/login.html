@@ -12,6 +12,10 @@
             <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded mb-4 text-sm" x-text="error"></div>
         </template>
 
+        <template x-if="successMsg">
+            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-2 rounded mb-4 text-sm" x-text="successMsg"></div>
+        </template>
+
         <form @submit.prevent="submit">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
@@ -29,6 +33,13 @@
                 <span x-show="loading">Loading...</span>
             </button>
         </form>
+
+        <div class="text-center mt-6 pt-6 border-t border-gray-200">
+            <p class="text-sm text-gray-600">
+                Belum punya akun?
+                <a href="/register" class="text-blue-600 hover:text-blue-800 font-semibold">Daftar di sini</a>
+            </p>
+        </div>
     </div>
 </div>
 
@@ -39,9 +50,17 @@ function loginForm() {
         password: '',
         loading: false,
         error: '',
+        successMsg: '',
+        init() {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('registered') === '1') {
+                this.successMsg = 'Akun berhasil dibuat! Silakan login.';
+            }
+        },
         async submit() {
             this.loading = true;
             this.error = '';
+            this.successMsg = '';
             try {
                 const res = await fetch('/auth/login', {
                     method: 'POST',

@@ -51,6 +51,13 @@ class TokenResponse(BaseModel):
     client_id: Optional[int] = None
 
 
+# SELF REGISTER
+class ClientSelfRegister(BaseModel):
+    name: str
+    admin_email: str
+    admin_password: str
+
+
 # USER
 class UserOut(BaseModel):
     id: int
