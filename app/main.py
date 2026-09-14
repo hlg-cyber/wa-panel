@@ -8,7 +8,7 @@ from app.config import settings
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="WA Panel API", version="0.4.0")
+app = FastAPI(title="WA Panel API", version="0.5.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -47,10 +47,11 @@ def root():
 
 
 # Register routers
-from app.routers import auth, dashboard, ui, api_managers, wabas
+from app.routers import auth, dashboard, ui, api_managers, wabas, clients
 
 app.include_router(auth.router)
 app.include_router(dashboard.router)
 app.include_router(ui.router)
 app.include_router(api_managers.router)
 app.include_router(wabas.router)
+app.include_router(clients.router)
